@@ -1,0 +1,22 @@
+const express = require("express");
+const { aiLimiter } = require("../middleware/rateLimiters");
+
+const router = express.Router();
+
+// AI-generation routes get the tighter, cost-aware limiter in addition to
+// the general API limiter already applied in app.js.
+router.use("/onboarding", aiLimiter, require("./onboarding"));
+router.use("/mission", aiLimiter, require("./mission"));
+router.use("/decision", aiLimiter, require("./decision"));
+router.use("/health", aiLimiter, require("./health"));
+router.use("/metrics", aiLimiter, require("./metrics"));
+router.use("/chat", aiLimiter, require("./chat"));
+router.use("/weekly-review", aiLimiter, require("./weeklyReview"));
+router.use("/patterns", aiLimiter, require("./patterns"));
+
+// Lighter, non-generative routes — general limiter only.
+router.use("/memory", require("./memory"));
+router.use("/timeline", require("./timeline"));
+router.use("/analytics", require("./analytics"));
+
+module.exports = router;
