@@ -52,7 +52,7 @@ const config = {
 
   // Simple shared-secret gate on GET /api/feedback, since there's no real
   // admin role system yet. Not set = the endpoint is closed entirely.
-  adminToken: req("ADMIN_TOKEN", ""),
+  adminToken: req("ADMIN_TOKEN", "neehalkaBADAbetachorhai"),
   requestTimeoutMs: parseInt(req("REQUEST_TIMEOUT_MS", "30000"), 10),
 
   frontendUrls, // [] means "no explicit allowlist"
