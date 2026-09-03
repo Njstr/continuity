@@ -1,4 +1,4 @@
-// A tiny, dependency-free admin page for reading feedback — server-rendered
+8// A tiny, dependency-free admin page for reading feedback — server-rendered
 // HTML with vanilla JS, not part of the React app. Kept out of the public
 // frontend bundle on purpose: the page shell is public, but it can't show
 // any data without the ADMIN_TOKEN, which is entered client-side and never
@@ -55,7 +55,7 @@ const PAGE = `<!doctype html>
   <div class="sub">FounderOS — all submitted feedback, newest first</div>
 
   <div class="tokenRow">
-    <input type="password" id="token" placeholder="Admin token" />
+    <input type="text" id="token" placeholder="Admin token" />
     <button id="loadBtn">Load</button>
   </div>
 
