@@ -1,14 +1,5 @@
-import React, { useState } from "react";
-import {
-  ArrowRight,
-  CheckCircle2,
-  Search,
-  Target,
-  Users,
-  MessageCircle,
-  TrendingUp,
-  X,
-} from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { ArrowRight, CheckCircle2, Search, Target, TrendingUp, X } from "lucide-react";
 import { styles } from "../styles/styles";
 import { C, F, globalCss } from "../styles/theme";
 import { COUNTRIES, COUNTRY_TO_CURRENCY, TERMS_INTRO, TERMS_BODY, todayStr } from "../constants";
@@ -16,103 +7,124 @@ import { COUNTRIES, COUNTRY_TO_CURRENCY, TERMS_INTRO, TERMS_BODY, todayStr } fro
 /*
  * FounderOS onboarding
  *
- * This is intentionally a single-page product introduction.
- * It does NOT ask the founder for their name, startup, industry,
- * stage, business model, team size, etc. Those details are learned
- * conversationally after entering Chat.
+ * Single-screen product introduction.
+ * No founder/company questions are collected here; the existing Chat flow
+ * handles that conversationally after this page.
  *
- * Layout:
- *   [ problem card ]       [ problem card ]
+ * Desktop:
+ *   two cards on top + two cards on bottom, with the FounderOS card
+ *   centered and layered above them.
  *
- *              [ central card ]
- *
- *   [ problem card ]       [ problem card ]
- *
- * The central card sits above the four surrounding cards.
+ * Mobile:
+ *   the same composition is scaled with viewport-relative dimensions so
+ *   the complete experience stays inside one screen with no page scrolling.
  */
 
 const BENEFITS = [
   {
-    key: "chaos",
+    key: "validate",
     icon: Search,
-    title: "Too much to figure out?",
-    description: "Bring your ideas, tasks, and decisions into one place.",
+    title: "Validate",
+    description: "Find real evidence before building.",
   },
   {
-    key: "next",
+    key: "guide",
     icon: Target,
-    title: "Not sure what to do next?",
-    description: "Get clear, personalized next steps for your goals.",
+    title: "Guide",
+    description: "Know what to do next with clarity.",
   },
   {
-    key: "connected",
+    key: "decide",
     icon: TrendingUp,
-    title: "Everything connected.",
-    description: "Keep your business knowledge in one place and easy to access.",
+    title: "Decide",
+    description: "Think through important choices.",
   },
   {
-    key: "advisor",
-    icon: MessageCircle,
-    title: "An advisor you can trust.",
-    description: "Chat with your AI co-founder whenever you need to think things through.",
+    key: "measure",
+    icon: TrendingUp,
+    title: "Measure",
+    description: "Track what actually matters.",
   },
 ];
 
 function MiniVisual({ type }) {
-  if (type === "chaos") {
+  if (type === "validate") {
     return (
-      <div className="onboard-visual onboard-chaos">
-        {["Ideas", "To-dos", "Notes", "???"].map((label, i) => (
-          <div
-            key={label}
-            className={`onboard-note onboard-note-${i}`}
-          >
-            {label}
-          </div>
-        ))}
-        <div className="onboard-scribble" />
-      </div>
-    );
-  }
-
-  if (type === "next") {
-    return (
-      <div className="onboard-visual onboard-checklist">
-        {["Validate idea", "Find customers", "Plan roadmap"].map((item, i) => (
-          <div className="onboard-check-row" key={item}>
-            <span className={`onboard-check ${i === 0 ? "done" : ""}`}>
-              {i === 0 && <CheckCircle2 size={13} />}
-            </span>
-            <span>{item}</span>
+      <div className="ob-visual ob-validate">
+        {[
+          ["Reddit", "✓"],
+          ["Competitors", "✓"],
+          ["Customer pain", "✓"],
+          ["Market signals", "✓"],
+        ].map(([label, check]) => (
+          <div className="ob-evidence-row" key={label}>
+            <span className="ob-evidence-icon">⌕</span>
+            <span>{label}</span>
+            <CheckCircle2 size={14} className="ob-evidence-check" />
           </div>
         ))}
       </div>
     );
   }
 
-  if (type === "connected") {
+  if (type === "guide") {
     return (
-      <div className="onboard-visual onboard-connected">
-        <div className="onboard-hub">✦</div>
-        <div className="onboard-orb onboard-orb-1">▤</div>
-        <div className="onboard-orb onboard-orb-2">↗</div>
-        <div className="onboard-orb onboard-orb-3">♙</div>
-        <div className="onboard-orb onboard-orb-4">$</div>
-        <div className="onboard-connect-line line-1" />
-        <div className="onboard-connect-line line-2" />
-        <div className="onboard-connect-line line-3" />
-        <div className="onboard-connect-line line-4" />
+      <div className="ob-visual ob-guide">
+        <div className="ob-mini-label">NEXT BEST ACTION</div>
+        <div className="ob-action-row">
+          <span>Interview 5 users</span>
+          <ArrowRight size={13} />
+        </div>
+        <div className="ob-action-meta">
+          <span>◷ 45 min</span>
+          <span>▮▮ High impact</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (type === "decide") {
+    return (
+      <div className="ob-visual ob-decide">
+        <div className="ob-mini-question">Build Feature X?</div>
+        <div className="ob-meter">
+          <span>Evidence</span>
+          <div className="ob-meter-track">
+            <div className="ob-meter-fill evidence" />
+          </div>
+          <b>78%</b>
+        </div>
+        <div className="ob-meter">
+          <span>Risk</span>
+          <div className="ob-meter-track">
+            <div className="ob-meter-fill risk" />
+          </div>
+          <b>32%</b>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="onboard-visual onboard-chat-preview">
-      <div className="onboard-chat-bubble user">Can you help me with pricing?</div>
-      <div className="onboard-chat-bubble ai">
-        Here's a strategy that could work...
+    <div className="ob-visual ob-measure">
+      <div className="ob-metric">
+        <span>MRR</span>
+        <b>₹49.9K</b>
+        <em>↗ 18%</em>
       </div>
-      <div className="onboard-spark">✦</div>
+      <svg viewBox="0 0 150 65" preserveAspectRatio="none" aria-hidden="true">
+        <path
+          d="M2 55 C20 49, 25 53, 39 40 S65 47, 78 30 S105 35, 118 19 S137 22, 148 8"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        />
+        <path
+          d="M2 55 C20 49, 25 53, 39 40 S65 47, 78 30 S105 35, 118 19 S137 22, 148 8 V65 H2 Z"
+          fill="currentColor"
+          opacity=".08"
+        />
+      </svg>
     </div>
   );
 }
@@ -121,56 +133,43 @@ function BenefitCard({ benefit, index }) {
   const Icon = benefit.icon;
 
   return (
-    <div
-      className={`onboard-benefit onboard-benefit-${index + 1}`}
-      style={{ animationDelay: `${index * 90 + 100}ms` }}
-    >
-      <div className="onboard-benefit-visual">
+    <article className={`ob-benefit ob-benefit-${index + 1}`}>
+      <div className="ob-card-visual">
         <MiniVisual type={benefit.key} />
       </div>
 
-      <div className="onboard-benefit-copy">
-        <div className="onboard-benefit-icon">
-          <Icon size={13} />
+      <div className="ob-card-copy">
+        <div className="ob-card-title-row">
+          <span className="ob-card-icon">
+            <Icon size={12} />
+          </span>
+          <h2>{benefit.title}</h2>
         </div>
-        <h2>{benefit.title}</h2>
         <p>{benefit.description}</p>
       </div>
-    </div>
+    </article>
   );
 }
 
 function CenterCard() {
   return (
-    <div className="onboard-center-card">
-      <div className="onboard-center-glow" />
+    <article className="ob-center">
+      <div className="ob-center-glow" />
 
-      <div className="onboard-robot">
-        <div className="onboard-robot-face">
-          <span />
-          <span />
-        </div>
-        <div className="onboard-robot-body">
-          <div className="onboard-robot-heart">✦</div>
-        </div>
+      <div className="ob-center-star">✦</div>
+
+      <div className="ob-center-brand">
+        Founder<span>OS</span>
       </div>
 
-      <div className="onboard-center-label">
-        <span>✦</span>
-        FounderOS
-      </div>
+      <div className="ob-center-divider" />
 
-      <h2>
-        Build with
+      <div className="ob-center-message">
+        A clearer
         <br />
-        <span>clarity.</span>
-      </h2>
-
-      <p>
-        Just talk. FounderOS learns about your business and helps you move
-        forward.
-      </p>
-    </div>
+        <span>tomorrow.</span>
+      </div>
+    </article>
   );
 }
 
@@ -179,7 +178,8 @@ export function Onboarding({ onDone }) {
   const [showTerms, setShowTerms] = useState(false);
   const [starting, setStarting] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
+    // Lock document scrolling while this full-screen onboarding is mounted.
     const previousBodyOverflow = document.body.style.overflow;
     const previousHtmlOverflow = document.documentElement.style.overflow;
 
@@ -197,8 +197,7 @@ export function Onboarding({ onDone }) {
 
     setStarting(true);
 
-    // Deliberately keep onboarding data-free. Chat learns the founder's
-    // identity, company, product, stage, goals, etc. conversationally.
+    // Keep onboarding data-free. Founder/company details are learned in Chat.
     const country = COUNTRIES[0];
 
     const companyProfile = {
@@ -218,944 +217,941 @@ export function Onboarding({ onDone }) {
   }
 
   return (
-    <div className="onboard-page">
+    <div className="ob-page">
       <style>{globalCss}</style>
 
       <style>{`
-        .onboard-page {
-          min-height: 100vh;
-          min-height: 100dvh;
+        .ob-page {
+          position: fixed;
+          inset: 0;
+          width: 100%;
+          height: 100dvh;
+          min-height: 0;
+          overflow: hidden;
           box-sizing: border-box;
           background:
-            radial-gradient(circle at 50% 38%, rgba(117, 72, 255, 0.10), transparent 30%),
-            radial-gradient(circle at 18% 48%, rgba(66, 91, 255, 0.055), transparent 28%),
+            radial-gradient(circle at 50% 44%, rgba(126, 78, 255, .10), transparent 28%),
+            radial-gradient(circle at 50% 100%, rgba(61, 69, 125, .10), transparent 34%),
             ${C.bg};
           color: ${C.text};
           font-family: ${F.body};
-          padding: 28px 20px 32px;
           display: flex;
           flex-direction: column;
-          overflow: hidden;
+          align-items: center;
+          padding: clamp(14px, 2.2vh, 28px) clamp(14px, 3vw, 38px);
+          isolation: isolate;
         }
 
-        .onboard-page * {
+        .ob-page *,
+        .ob-page *::before,
+        .ob-page *::after {
           box-sizing: border-box;
         }
 
-        .onboard-topbar {
+        .ob-top {
           width: min(920px, 100%);
-          margin: 0 auto;
           display: flex;
           align-items: center;
           justify-content: space-between;
+          flex: 0 0 auto;
         }
 
-        .onboard-wordmark {
+        .ob-logo {
           display: flex;
           align-items: center;
           gap: 8px;
           font-family: ${F.display};
-          font-size: 19px;
+          font-size: clamp(16px, 1.8vw, 21px);
           font-weight: 650;
-          letter-spacing: -0.4px;
+          letter-spacing: -.45px;
         }
 
-        .onboard-wordmark-star {
-          color: ${C.accent};
-          font-size: 22px;
+        .ob-logo-star {
+          color: #f0b34a;
+          font-size: 21px;
           line-height: 1;
-          filter: drop-shadow(0 0 10px ${C.accent}88);
+          filter: drop-shadow(0 0 9px rgba(240,179,74,.35));
         }
 
-        .onboard-top-note {
-          color: ${C.muted};
-          font-size: 11px;
-          letter-spacing: 0.2px;
-        }
-
-        .onboard-heading {
+        .ob-heading {
           text-align: center;
-          width: min(680px, 100%);
-          margin: 38px auto 0;
+          width: min(720px, 100%);
+          margin-top: clamp(18px, 3.5vh, 38px);
+          flex: 0 0 auto;
         }
 
-        .onboard-eyebrow {
-          color: ${C.accent};
+        .ob-eyebrow {
+          color: #f0b34a;
           font-family: ${F.mono};
-          font-size: 10px;
-          letter-spacing: 1.8px;
-          text-transform: uppercase;
+          font-size: 9px;
+          letter-spacing: 2px;
         }
 
-        .onboard-heading h1 {
-          margin: 9px 0 0;
+        .ob-heading h1 {
+          margin: 8px 0 0;
           font-family: ${F.display};
-          font-size: clamp(29px, 5vw, 46px);
-          line-height: 1.08;
-          letter-spacing: -1.6px;
-          font-weight: 700;
+          font-size: clamp(30px, 4.5vw, 49px);
+          line-height: 1;
+          letter-spacing: -1.7px;
         }
 
-        .onboard-heading h1 span {
-          color: ${C.accent};
-          text-shadow: 0 0 28px ${C.accent}44;
+        .ob-heading h1 span {
+          color: #f0b34a;
+          text-shadow: 0 0 25px rgba(240,179,74,.18);
         }
 
-        .onboard-heading p {
+        .ob-heading p {
+          max-width: 600px;
           margin: 12px auto 0;
-          max-width: 510px;
           color: ${C.muted};
-          font-size: 14px;
-          line-height: 1.55;
-        }
-
-        .onboard-stage {
-          position: relative;
-          width: min(700px, 100%);
-          height: 620px;
-          margin: 28px auto 0;
-        }
-
-        .onboard-stage-ring {
-          position: absolute;
-          width: 360px;
-          height: 360px;
-          left: 50%;
-          top: 50%;
-          transform: translate(-50%, -50%);
-          border: 1px solid ${C.accent}22;
-          border-radius: 50%;
-          box-shadow:
-            0 0 70px ${C.accent}08,
-            inset 0 0 60px ${C.accent}05;
-        }
-
-        .onboard-stage-ring::before,
-        .onboard-stage-ring::after {
-          content: "";
-          position: absolute;
-          inset: 25px;
-          border: 1px solid ${C.accent}10;
-          border-radius: 50%;
-        }
-
-        .onboard-stage-ring::after {
-          inset: 75px;
-          border-color: ${C.accent}12;
-        }
-
-        .onboard-benefit {
-          position: absolute;
-          width: 235px;
-          min-height: 245px;
-          padding: 14px;
-          border: 1px solid ${C.border};
-          border-radius: 22px;
-          background:
-            linear-gradient(145deg, ${C.surface2}, rgba(10, 13, 27, 0.76));
-          box-shadow:
-            0 18px 50px rgba(0, 0, 0, 0.25),
-            0 0 35px ${C.accent}06;
-          opacity: 0;
-          animation: onboard-card-in 650ms cubic-bezier(.2,.8,.2,1) forwards;
-          backdrop-filter: blur(10px);
-          z-index: 2;
-        }
-
-        .onboard-benefit::after {
-          content: "";
-          position: absolute;
-          inset: 0;
-          border-radius: inherit;
-          pointer-events: none;
-          background: linear-gradient(135deg, ${C.accent}08, transparent 45%);
-        }
-
-        .onboard-benefit-1 {
-          left: 0;
-          top: 34px;
-          transform: rotate(-2deg);
-        }
-
-        .onboard-benefit-2 {
-          right: 0;
-          top: 34px;
-          transform: rotate(2deg);
-        }
-
-        .onboard-benefit-3 {
-          left: 0;
-          bottom: 34px;
-          transform: rotate(2deg);
-        }
-
-        .onboard-benefit-4 {
-          right: 0;
-          bottom: 34px;
-          transform: rotate(-2deg);
-        }
-
-        .onboard-benefit:hover {
-          transform: translateY(-4px) rotate(0deg);
-          border-color: ${C.accent}55;
-        }
-
-        .onboard-benefit-visual {
-          height: 128px;
-          border-radius: 15px;
-          border: 1px solid ${C.border};
-          background: rgba(5, 8, 18, 0.62);
-          overflow: hidden;
-          position: relative;
-        }
-
-        .onboard-benefit-copy {
-          position: relative;
-          z-index: 2;
-          padding: 11px 2px 2px;
-        }
-
-        .onboard-benefit-icon {
-          display: none;
-        }
-
-        .onboard-benefit h2 {
-          margin: 0;
-          font-family: ${F.display};
-          font-size: 17px;
-          line-height: 1.2;
-          letter-spacing: -0.3px;
-        }
-
-        .onboard-benefit p {
-          margin: 6px 0 0;
-          color: ${C.muted};
-          font-size: 11.5px;
+          font-size: clamp(11px, 1.25vw, 14px);
           line-height: 1.45;
         }
 
-        /* Central card */
-        .onboard-center-card {
+        /* The main composition is intentionally bounded. Nothing in it
+           determines page height, which keeps the viewport non-scrollable. */
+        .ob-stage {
+          position: relative;
+          width: min(820px, 94vw);
+          height: min(540px, 48vh);
+          min-height: 365px;
+          margin-top: clamp(14px, 2.4vh, 26px);
+          flex: 1 1 auto;
+          max-height: 540px;
+        }
+
+        .ob-ring {
           position: absolute;
-          width: 250px;
-          min-height: 300px;
+          width: min(430px, 50%);
+          aspect-ratio: 1;
+          left: 50%;
+          top: 50%;
+          transform: translate(-50%, -50%);
+          border: 1px solid rgba(240,179,74,.20);
+          border-radius: 50%;
+          box-shadow: 0 0 55px rgba(122,74,255,.08);
+          pointer-events: none;
+        }
+
+        .ob-ring::before {
+          content: "";
+          position: absolute;
+          inset: 15%;
+          border: 1px solid rgba(126,78,255,.12);
+          border-radius: 50%;
+        }
+
+        .ob-benefit {
+          position: absolute;
+          width: clamp(205px, 27vw, 255px);
+          height: clamp(190px, 21vh, 225px);
+          padding: 11px;
+          border: 1px solid rgba(126, 105, 218, .30);
+          border-radius: 20px;
+          background: linear-gradient(145deg, rgba(26,27,48,.96), rgba(13,15,29,.94));
+          box-shadow: 0 16px 45px rgba(0,0,0,.30), 0 0 35px rgba(104,71,230,.07);
+          z-index: 2;
+        }
+
+        .ob-benefit-1 {
+          left: 1%;
+          top: 1%;
+          transform: rotate(-1.2deg);
+        }
+
+        .ob-benefit-2 {
+          right: 1%;
+          top: 1%;
+          transform: rotate(1.2deg);
+        }
+
+        .ob-benefit-3 {
+          left: 1%;
+          bottom: 1%;
+          transform: rotate(1.2deg);
+        }
+
+        .ob-benefit-4 {
+          right: 1%;
+          bottom: 1%;
+          transform: rotate(-1.2deg);
+        }
+
+        .ob-card-visual {
+          height: 58%;
+          min-height: 105px;
+          border: 1px solid rgba(126,105,218,.18);
+          border-radius: 13px;
+          background: rgba(8,10,21,.62);
+          overflow: hidden;
+        }
+
+        .ob-card-copy {
+          padding: 10px 4px 0;
+        }
+
+        .ob-card-title-row {
+          display: flex;
+          align-items: center;
+          gap: 7px;
+        }
+
+        .ob-card-icon {
+          width: 20px;
+          height: 20px;
+          flex: 0 0 20px;
+          border-radius: 6px;
+          display: grid;
+          place-items: center;
+          color: #c8bcff;
+          background: rgba(126,78,255,.13);
+          border: 1px solid rgba(126,78,255,.25);
+        }
+
+        .ob-benefit h2 {
+          margin: 0;
+          font-family: ${F.display};
+          font-size: 18px;
+          line-height: 1.1;
+          letter-spacing: -.35px;
+        }
+
+        .ob-benefit p {
+          margin: 5px 0 0 27px;
+          color: ${C.muted};
+          font-size: 11px;
+          line-height: 1.35;
+        }
+
+        /* Center card */
+        .ob-center {
+          position: absolute;
+          width: clamp(205px, 25vw, 270px);
+          aspect-ratio: .92;
           left: 50%;
           top: 50%;
           transform: translate(-50%, -50%);
           z-index: 5;
-          border: 1px solid ${C.accent}75;
-          border-radius: 27px;
-          padding: 22px 20px 19px;
+          border: 2px solid rgba(126,78,255,.82);
+          border-radius: 24px;
           background:
-            radial-gradient(circle at 50% 18%, ${C.accent}18, transparent 32%),
-            linear-gradient(145deg, rgba(31, 25, 68, 0.98), rgba(10, 12, 28, 0.98));
+            radial-gradient(circle at 50% 25%, rgba(126,78,255,.18), transparent 40%),
+            linear-gradient(145deg, rgba(29,27,58,.99), rgba(12,14,29,.99));
           box-shadow:
-            0 0 0 1px ${C.accent}10,
-            0 22px 70px rgba(0, 0, 0, 0.45),
-            0 0 55px ${C.accent}1c;
+            0 0 0 1px rgba(126,78,255,.08),
+            0 25px 70px rgba(0,0,0,.45),
+            0 0 55px rgba(126,78,255,.16);
           display: flex;
           flex-direction: column;
           align-items: center;
+          justify-content: center;
           text-align: center;
-        }
-
-        .onboard-center-glow {
-          position: absolute;
-          width: 170px;
-          height: 170px;
-          top: 2px;
-          left: 50%;
-          transform: translateX(-50%);
-          border-radius: 50%;
-          background: ${C.accent}12;
-          filter: blur(30px);
-          pointer-events: none;
-        }
-
-        .onboard-robot {
-          position: relative;
-          width: 76px;
-          height: 82px;
-          margin-bottom: 8px;
-          z-index: 2;
-        }
-
-        .onboard-robot-face {
-          position: absolute;
-          left: 7px;
-          top: 7px;
-          width: 62px;
-          height: 46px;
-          border: 2px solid #b7a8ff;
-          border-radius: 23px 23px 19px 19px;
-          background: #17182e;
-          box-shadow: 0 0 24px ${C.accent}38;
-        }
-
-        .onboard-robot-face::before {
-          content: "";
-          position: absolute;
-          width: 5px;
-          height: 5px;
-          left: -7px;
-          top: 17px;
-          border-radius: 50%;
-          background: ${C.accent};
-          box-shadow: 71px 0 0 ${C.accent};
-        }
-
-        .onboard-robot-face span {
-          position: absolute;
-          top: 18px;
-          width: 7px;
-          height: 7px;
-          border-radius: 50%;
-          background: #bdb3ff;
-        }
-
-        .onboard-robot-face span:first-child { left: 19px; }
-        .onboard-robot-face span:last-child { right: 19px; }
-
-        .onboard-robot-body {
-          position: absolute;
-          left: 18px;
-          bottom: 0;
-          width: 40px;
-          height: 31px;
-          border-radius: 12px 12px 17px 17px;
-          border: 1px solid ${C.accent}77;
-          background: #242142;
-        }
-
-        .onboard-robot-heart {
-          color: ${C.accent};
-          font-size: 13px;
-          text-align: center;
-          margin-top: 7px;
-        }
-
-        .onboard-center-label {
-          display: flex;
-          align-items: center;
-          gap: 5px;
-          color: ${C.text};
-          font-family: ${F.display};
-          font-size: 13px;
-          font-weight: 650;
-          position: relative;
-          z-index: 2;
-        }
-
-        .onboard-center-label span {
-          color: ${C.accent};
-        }
-
-        .onboard-center-card h2 {
-          margin: 12px 0 0;
-          font-family: ${F.display};
-          font-size: 29px;
-          line-height: 1.04;
-          letter-spacing: -1px;
-          position: relative;
-          z-index: 2;
-        }
-
-        .onboard-center-card h2 span {
-          color: ${C.accent};
-          text-shadow: 0 0 20px ${C.accent}44;
-        }
-
-        .onboard-center-card p {
-          max-width: 190px;
-          margin: 13px 0 0;
-          color: ${C.muted};
-          font-size: 11.5px;
-          line-height: 1.55;
-          position: relative;
-          z-index: 2;
-        }
-
-        /* Mini product visuals */
-        .onboard-visual {
-          width: 100%;
-          height: 100%;
-          position: relative;
           overflow: hidden;
         }
 
-        .onboard-note {
+        .ob-center-glow {
           position: absolute;
-          padding: 7px 10px;
-          border-radius: 8px;
-          color: #e8e4ff;
-          font-size: 9px;
-          background: linear-gradient(145deg, #2b2a4d, #181a32);
-          border: 1px solid ${C.accent}45;
-          box-shadow: 0 8px 18px rgba(0,0,0,.24);
-        }
-
-        .onboard-note-0 { left: 20px; top: 23px; transform: rotate(-7deg); }
-        .onboard-note-1 { right: 20px; top: 18px; transform: rotate(8deg); }
-        .onboard-note-2 { left: 31px; bottom: 20px; transform: rotate(5deg); }
-        .onboard-note-3 { right: 30px; bottom: 25px; transform: rotate(-5deg); }
-
-        .onboard-scribble {
-          position: absolute;
-          width: 54px;
-          height: 42px;
-          left: 50%;
-          top: 50%;
-          transform: translate(-50%, -50%) rotate(-12deg);
-          border: 2px solid ${C.accent}77;
-          border-radius: 48% 52% 44% 56%;
-          border-right-color: transparent;
-          border-bottom-color: ${C.accent}33;
-        }
-
-        .onboard-checklist {
-          padding: 17px 14px;
-        }
-
-        .onboard-check-row {
-          height: 29px;
-          margin-bottom: 7px;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 0 8px;
-          border-radius: 8px;
-          background: rgba(31, 34, 61, .8);
-          color: #c6c4df;
-          font-size: 9.5px;
-          border: 1px solid rgba(130, 122, 220, .12);
-        }
-
-        .onboard-check {
-          width: 13px;
-          height: 13px;
-          border: 1px solid #77789d;
+          width: 80%;
+          aspect-ratio: 1;
+          top: -12%;
           border-radius: 50%;
-          flex: 0 0 auto;
+          background: rgba(126,78,255,.10);
+          filter: blur(25px);
         }
 
-        .onboard-check.done {
-          border-color: ${C.accent};
-          color: white;
-          display: grid;
-          place-items: center;
-          background: ${C.accent}cc;
+        .ob-center-star {
+          position: relative;
+          z-index: 1;
+          color: #f0b34a;
+          font-size: clamp(28px, 3.2vw, 38px);
+          line-height: 1;
+          filter: drop-shadow(0 0 11px rgba(240,179,74,.30));
         }
 
-        .onboard-connected .onboard-hub {
-          position: absolute;
-          width: 38px;
-          height: 38px;
-          left: 50%;
-          top: 50%;
-          transform: translate(-50%, -50%);
-          border: 1px solid ${C.accent};
-          border-radius: 50%;
-          display: grid;
-          place-items: center;
-          color: ${C.accent};
-          background: #1b1835;
-          box-shadow: 0 0 22px ${C.accent}35;
-          z-index: 2;
-        }
-
-        .onboard-orb {
-          position: absolute;
-          width: 34px;
-          height: 34px;
-          display: grid;
-          place-items: center;
-          border: 1px solid ${C.accent}55;
-          border-radius: 9px;
-          color: #d6d0ff;
-          background: #1b1d36;
-          font-size: 13px;
-          z-index: 2;
-        }
-
-        .onboard-orb-1 { left: 28px; top: 22px; }
-        .onboard-orb-2 { right: 28px; top: 22px; }
-        .onboard-orb-3 { left: 28px; bottom: 22px; }
-        .onboard-orb-4 { right: 28px; bottom: 22px; }
-
-        .onboard-connect-line {
-          position: absolute;
-          height: 1px;
-          width: 72px;
-          background: linear-gradient(90deg, transparent, ${C.accent}66, transparent);
-          left: 50%;
-          top: 50%;
-          transform-origin: left center;
-        }
-
-        .line-1 { transform: rotate(-145deg); }
-        .line-2 { transform: rotate(-35deg); }
-        .line-3 { transform: rotate(145deg); }
-        .line-4 { transform: rotate(35deg); }
-
-        .onboard-chat-preview {
-          padding: 17px 12px;
-        }
-
-        .onboard-chat-bubble {
-          max-width: 82%;
-          padding: 9px 10px;
-          border-radius: 10px;
-          font-size: 9px;
-          line-height: 1.35;
-          position: absolute;
-        }
-
-        .onboard-chat-bubble.user {
-          right: 12px;
-          top: 22px;
-          color: #d9d6ef;
-          background: #292b4a;
-        }
-
-        .onboard-chat-bubble.ai {
-          left: 12px;
-          bottom: 24px;
-          color: white;
-          background: linear-gradient(135deg, #6545e9, #4530c5);
-          box-shadow: 0 8px 24px ${C.accent}2c;
-        }
-
-        .onboard-spark {
-          position: absolute;
-          right: 12px;
-          bottom: 17px;
-          color: ${C.accent};
-          font-size: 17px;
-          filter: drop-shadow(0 0 8px ${C.accent});
-        }
-
-        /* CTA */
-        .onboard-cta {
-          width: min(470px, 100%);
-          margin: 0 auto;
-          text-align: center;
-        }
-
-        .onboard-cta-title {
+        .ob-center-brand {
+          position: relative;
+          z-index: 1;
+          margin-top: 10px;
           font-family: ${F.display};
-          font-size: 17px;
+          font-size: clamp(18px, 2vw, 25px);
           font-weight: 650;
         }
 
-        .onboard-cta-subtitle {
-          color: ${C.muted};
-          font-size: 11.5px;
-          margin-top: 5px;
+        .ob-center-brand span {
+          color: #f0b34a;
         }
 
-        .onboard-agree {
-          display: flex;
-          justify-content: center;
+        .ob-center-divider {
+          position: relative;
+          z-index: 1;
+          width: 55%;
+          height: 1px;
+          margin: 16px 0 13px;
+          background: rgba(190,180,255,.16);
+        }
+
+        .ob-center-message {
+          position: relative;
+          z-index: 1;
+          font-family: ${F.mono};
+          font-size: clamp(10px, 1.1vw, 13px);
+          line-height: 1.8;
+          letter-spacing: 4px;
+          text-transform: uppercase;
+          color: ${C.muted};
+        }
+
+        .ob-center-message span {
+          color: #f0b34a;
+        }
+
+        /* Mini visual 1 */
+        .ob-visual {
+          position: relative;
+          width: 100%;
+          height: 100%;
+          color: #d9d4ef;
+        }
+
+        .ob-validate {
+          padding: 12px 13px;
+        }
+
+        .ob-evidence-row {
+          display: grid;
+          grid-template-columns: 17px 1fr 16px;
           align-items: center;
           gap: 7px;
-          margin-top: 15px;
-          color: ${C.muted};
+          height: 25%;
+          color: #c4c0d8;
+          font-size: 9.5px;
+          border-bottom: 1px solid rgba(126,105,218,.08);
+        }
+
+        .ob-evidence-icon {
+          color: #a99aff;
+          font-size: 15px;
+        }
+
+        .ob-evidence-check {
+          color: #2fbd75;
+        }
+
+        /* Mini visual 2 */
+        .ob-guide {
+          padding: 14px;
+        }
+
+        .ob-mini-label {
+          color: #85839e;
+          font-family: ${F.mono};
+          font-size: 8px;
+          letter-spacing: .6px;
+        }
+
+        .ob-action-row {
+          margin-top: 8px;
+          height: 39px;
+          padding: 0 10px;
+          border: 1px solid rgba(126,78,255,.35);
+          border-radius: 9px;
+          background: rgba(76,54,151,.18);
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          font-size: 10px;
+        }
+
+        .ob-action-row svg {
+          color: #c1b3ff;
+        }
+
+        .ob-action-meta {
+          display: flex;
+          justify-content: space-between;
+          margin-top: 8px;
+          color: #777692;
+          font-size: 8px;
+        }
+
+        .ob-action-meta span:last-child {
+          color: #45c983;
+        }
+
+        /* Mini visual 3 */
+        .ob-decide {
+          padding: 13px;
+        }
+
+        .ob-mini-question {
           font-size: 11px;
+          margin-bottom: 13px;
         }
 
-        .onboard-agree input {
-          accent-color: ${C.accent};
-          width: 14px;
-          height: 14px;
+        .ob-meter {
+          display: grid;
+          grid-template-columns: 48px 1fr 27px;
+          align-items: center;
+          gap: 7px;
+          margin-top: 9px;
+          color: #85839e;
+          font-size: 8px;
         }
 
-        .onboard-agree a {
-          color: ${C.accent};
-          text-decoration: underline;
+        .ob-meter b {
+          color: #c8c2dd;
+          font-weight: 500;
+          text-align: right;
         }
 
-        .onboard-start {
+        .ob-meter-track {
+          height: 7px;
+          border-radius: 999px;
+          background: rgba(116,108,156,.22);
+          overflow: hidden;
+        }
+
+        .ob-meter-fill {
+          height: 100%;
+          border-radius: inherit;
+        }
+
+        .ob-meter-fill.evidence {
+          width: 78%;
+          background: #42c98b;
+        }
+
+        .ob-meter-fill.risk {
+          width: 32%;
+          background: #f0b34a;
+        }
+
+        /* Mini visual 4 */
+        .ob-measure {
+          padding: 13px;
+          color: #43c98b;
+        }
+
+        .ob-metric {
+          display: flex;
+          flex-direction: column;
+          position: relative;
+          z-index: 1;
+        }
+
+        .ob-metric span {
+          color: #85839e;
+          font-family: ${F.mono};
+          font-size: 8px;
+        }
+
+        .ob-metric b {
+          color: #e4e0f0;
+          font-size: 18px;
+          margin-top: 3px;
+        }
+
+        .ob-metric em {
+          color: #42c98b;
+          font-size: 9px;
+          font-style: normal;
+          margin-top: 3px;
+        }
+
+        .ob-measure svg {
+          position: absolute;
+          left: 12px;
+          right: 12px;
+          bottom: 7px;
+          width: calc(100% - 24px);
+          height: 48px;
+        }
+
+        /* Bottom */
+        .ob-bottom {
+          width: min(470px, 100%);
+          text-align: center;
+          flex: 0 0 auto;
+          margin-top: clamp(4px, 1vh, 10px);
+        }
+
+        .ob-bottom-title {
+          font-family: ${F.display};
+          font-size: 16px;
+          font-weight: 650;
+        }
+
+        .ob-start {
           width: 100%;
-          margin-top: 12px;
-          min-height: 48px;
+          height: 48px;
+          margin-top: 10px;
           border: 0;
           border-radius: 999px;
-          background: linear-gradient(100deg, #7448ff, #5335ec);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          background: linear-gradient(100deg, #7448ff, #5134df);
           color: white;
           font-family: ${F.display};
           font-size: 14px;
           font-weight: 650;
-          box-shadow: 0 12px 35px ${C.accent}25;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 7px;
-          transition: transform .18s ease, opacity .18s ease, box-shadow .18s ease;
+          box-shadow: 0 12px 35px rgba(108,68,240,.23);
         }
 
-        .onboard-start:not(:disabled):hover {
-          transform: translateY(-2px);
-          box-shadow: 0 16px 42px ${C.accent}35;
-        }
-
-        .onboard-start:disabled {
-          opacity: .45;
+        .ob-start:disabled {
+          opacity: .48;
           cursor: not-allowed;
         }
 
-        .onboard-note-bottom {
+        .ob-agree {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          gap: 7px;
+          margin-top: 8px;
           color: ${C.muted};
           font-size: 10.5px;
-          margin-top: 9px;
         }
 
-        .onboard-footer {
-          text-align: center;
-          margin-top: 28px;
+        .ob-agree input {
+          width: 14px;
+          height: 14px;
+          margin: 0;
+          accent-color: #7448ff;
+        }
+
+        .ob-agree a {
+          color: #f0b34a;
+          text-decoration: underline;
+        }
+
+        .ob-footer {
+          margin-top: clamp(6px, 1.2vh, 12px);
           color: ${C.muted};
-          opacity: .5;
+          opacity: .52;
           font-family: ${F.mono};
-          font-size: 8px;
-          letter-spacing: 2.3px;
-          line-height: 1.7;
+          font-size: 7px;
+          letter-spacing: 2.5px;
+          text-align: center;
+          flex: 0 0 auto;
         }
 
-        @keyframes onboard-card-in {
-          from { opacity: 0; transform: translateY(16px) scale(.97) rotate(0deg); }
-          to { opacity: 1; }
-        }
-
-        /* Android/mobile: keep the visuals small and centered rather than
-           letting them fill the entire screen. */
+        /* Tablet/mobile */
         @media (max-width: 700px) {
-          .onboard-page {
+          .ob-page {
+            padding: 11px 12px 9px;
+          }
+
+          .ob-top {
             width: 100%;
-            height: 100dvh;
-            min-height: 0;
-            max-height: 100dvh;
-            padding: 12px 12px 10px;
-            overflow: hidden;
-            position: fixed;
-            inset: 0;
           }
 
-          .onboard-top-note {
-            display: none;
+          .ob-logo {
+            font-size: 15px;
           }
 
-          .onboard-heading {
-            margin-top: 20px;
-            flex: 0 0 auto;
+          .ob-logo-star {
+            font-size: 18px;
           }
 
-          .onboard-heading h1 {
-            font-size: clamp(25px, 7.5vw, 34px);
+          .ob-heading {
+            margin-top: 14px;
+          }
+
+          .ob-eyebrow {
+            font-size: 7px;
+            letter-spacing: 1.5px;
+          }
+
+          .ob-heading h1 {
+            font-size: clamp(25px, 8vw, 33px);
             letter-spacing: -1px;
+            line-height: 1.02;
           }
 
-          .onboard-heading p {
-            font-size: 11.5px;
-            max-width: 300px;
+          .ob-heading p {
+            max-width: 320px;
+            margin-top: 7px;
+            font-size: 9.5px;
+            line-height: 1.35;
+          }
+
+          .ob-stage {
+            width: min(380px, 100%);
+            height: clamp(300px, 43vh, 360px);
+            min-height: 300px;
             margin-top: 8px;
-            line-height: 1.4;
           }
 
-          .onboard-stage {
-            width: min(340px, 100%);
-            height: clamp(285px, calc(100dvh - 405px), 350px);
-            min-height: 285px;
-            margin-top: 8px;
-            margin-bottom: 4px;
-            flex: 1 1 auto;
+          .ob-ring {
+            width: 57%;
           }
 
-          .onboard-stage-ring {
-            width: min(210px, 62vw);
-            height: min(210px, 62vw);
-          }
-
-          .onboard-benefit {
-            width: 112px;
-            min-height: 132px;
+          .ob-benefit {
+            width: 116px;
+            height: clamp(132px, 17vh, 151px);
             padding: 7px;
             border-radius: 14px;
           }
 
-          .onboard-benefit-1 {
-            left: 2px;
-            top: 12px;
+          .ob-benefit-1 {
+            left: 0;
+            top: 0;
           }
 
-          .onboard-benefit-2 {
-            right: 2px;
-            top: 12px;
+          .ob-benefit-2 {
+            right: 0;
+            top: 0;
           }
 
-          .onboard-benefit-3 {
-            left: 2px;
-            bottom: 12px;
+          .ob-benefit-3 {
+            left: 0;
+            bottom: 0;
           }
 
-          .onboard-benefit-4 {
-            right: 2px;
-            bottom: 12px;
+          .ob-benefit-4 {
+            right: 0;
+            bottom: 0;
           }
 
-          .onboard-benefit-visual {
-            height: 64px;
+          .ob-card-visual {
+            height: 66px;
+            min-height: 0;
             border-radius: 9px;
           }
 
-          .onboard-benefit h2 {
-            font-size: 10.5px;
-            line-height: 1.15;
+          .ob-card-copy {
+            padding: 7px 2px 0;
           }
 
-          .onboard-benefit p {
-            font-size: 7.5px;
-            line-height: 1.28;
-            margin-top: 3px;
+          .ob-card-icon {
+            width: 16px;
+            height: 16px;
+            flex-basis: 16px;
+            border-radius: 5px;
           }
 
-          .onboard-note {
-            padding: 5px 7px;
-            font-size: 7px;
-          }
-
-          .onboard-note-0 { left: 12px; top: 14px; }
-          .onboard-note-1 { right: 12px; top: 12px; }
-          .onboard-note-2 { left: 18px; bottom: 12px; }
-          .onboard-note-3 { right: 18px; bottom: 13px; }
-
-          .onboard-checklist {
-            padding: 10px 8px;
-          }
-
-          .onboard-check-row {
-            height: 20px;
-            margin-bottom: 4px;
-            padding: 0 5px;
-            gap: 5px;
-            font-size: 7px;
-          }
-
-          .onboard-check {
+          .ob-card-icon svg {
             width: 9px;
             height: 9px;
           }
 
-          .onboard-check.done svg {
-            width: 8px;
-            height: 8px;
+          .ob-benefit h2 {
+            font-size: 11px;
+            letter-spacing: -.2px;
           }
 
-          .onboard-connected .onboard-hub {
-            width: 28px;
-            height: 28px;
-            font-size: 10px;
-          }
-
-          .onboard-orb {
-            width: 26px;
-            height: 26px;
-            font-size: 9px;
-            border-radius: 7px;
-          }
-
-          .onboard-orb-1 { left: 17px; top: 12px; }
-          .onboard-orb-2 { right: 17px; top: 12px; }
-          .onboard-orb-3 { left: 17px; bottom: 12px; }
-          .onboard-orb-4 { right: 17px; bottom: 12px; }
-
-          .onboard-connect-line {
-            width: 49px;
-          }
-
-          .onboard-chat-preview {
-            padding: 10px 7px;
-          }
-
-          .onboard-chat-bubble {
-            padding: 6px 7px;
-            font-size: 7px;
-            border-radius: 7px;
-          }
-
-          .onboard-chat-bubble.user {
-            right: 7px;
-            top: 13px;
-          }
-
-          .onboard-chat-bubble.ai {
-            left: 7px;
-            bottom: 13px;
-          }
-
-          .onboard-spark {
-            right: 7px;
-            bottom: 9px;
-            font-size: 12px;
-          }
-
-          .onboard-center-card {
-            width: 132px;
-            min-height: 166px;
-            padding: 10px 9px 9px;
-            border-radius: 18px;
-          }
-
-          .onboard-robot {
-            width: 48px;
-            height: 51px;
-            transform: scale(.62);
-            transform-origin: top center;
-            margin-top: -2px;
-            margin-bottom: -9px;
-          }
-
-          .onboard-center-label {
-            font-size: 8.5px;
-          }
-
-          .onboard-center-card h2 {
-            font-size: 18px;
-            margin-top: 6px;
-            letter-spacing: -.6px;
-          }
-
-          .onboard-center-card p {
-            max-width: 118px;
+          .ob-benefit p {
+            margin: 4px 0 0 22px;
             font-size: 7.5px;
+            line-height: 1.25;
+          }
+
+          .ob-center {
+            width: 137px;
+            height: 151px;
+            border-radius: 17px;
+          }
+
+          .ob-center-star {
+            font-size: 25px;
+          }
+
+          .ob-center-brand {
             margin-top: 6px;
-            line-height: 1.35;
-          }
-
-          .onboard-cta {
-            max-width: 300px;
-            flex: 0 0 auto;
-          }
-
-          .onboard-agree {
-            margin-top: 10px;
-          }
-
-          .onboard-start {
-            margin-top: 9px;
-            min-height: 43px;
-          }
-
-          .onboard-cta-title {
-            font-size: 15px;
-          }
-
-          .onboard-cta-subtitle {
-            font-size: 10px;
-          }
-
-          .onboard-start {
-            min-height: 46px;
             font-size: 13px;
           }
 
-          .onboard-footer {
-            margin-top: 7px;
-            flex: 0 0 auto;
+          .ob-center-divider {
+            margin: 9px 0 8px;
+            width: 50%;
+          }
+
+          .ob-center-message {
             font-size: 7px;
+            line-height: 1.75;
+            letter-spacing: 2.3px;
+          }
+
+          .ob-validate,
+          .ob-guide,
+          .ob-decide,
+          .ob-measure {
+            padding: 8px;
+          }
+
+          .ob-evidence-row {
+            grid-template-columns: 12px 1fr 11px;
+            gap: 4px;
+            font-size: 6.8px;
+          }
+
+          .ob-evidence-icon {
+            font-size: 11px;
+          }
+
+          .ob-evidence-check {
+            width: 9px;
+            height: 9px;
+          }
+
+          .ob-mini-label {
+            font-size: 5.5px;
+          }
+
+          .ob-action-row {
+            margin-top: 5px;
+            height: 27px;
+            padding: 0 6px;
+            border-radius: 6px;
+            font-size: 6.8px;
+          }
+
+          .ob-action-row svg {
+            width: 9px;
+            height: 9px;
+          }
+
+          .ob-action-meta {
+            margin-top: 5px;
+            font-size: 5.5px;
+          }
+
+          .ob-mini-question {
+            font-size: 7.5px;
+            margin-bottom: 7px;
+          }
+
+          .ob-meter {
+            grid-template-columns: 29px 1fr 18px;
+            gap: 4px;
+            margin-top: 5px;
+            font-size: 5.5px;
+          }
+
+          .ob-meter-track {
+            height: 4px;
+          }
+
+          .ob-metric span {
+            font-size: 5.5px;
+          }
+
+          .ob-metric b {
+            font-size: 12px;
+            margin-top: 2px;
+          }
+
+          .ob-metric em {
+            font-size: 6px;
+          }
+
+          .ob-measure svg {
+            left: 8px;
+            bottom: 4px;
+            width: calc(100% - 16px);
+            height: 31px;
+          }
+
+          .ob-bottom {
+            width: min(300px, 100%);
+            margin-top: 3px;
+          }
+
+          .ob-bottom-title {
+            font-size: 13px;
+          }
+
+          .ob-start {
+            height: 43px;
+            margin-top: 7px;
+            font-size: 11.5px;
+          }
+
+          .ob-agree {
+            margin-top: 6px;
+            font-size: 8px;
+          }
+
+          .ob-agree input {
+            width: 12px;
+            height: 12px;
+          }
+
+          .ob-footer {
+            margin-top: 5px;
+            font-size: 5.5px;
+            letter-spacing: 2px;
           }
         }
 
-        @media (max-width: 380px) {
-          .onboard-heading {
-            margin-top: 16px;
+        /* Very short Android screens: scale the composition down rather
+           than allowing anything to extend below the viewport. */
+        @media (max-width: 700px) and (max-height: 700px) {
+          .ob-page {
+            padding-top: 8px;
+            padding-bottom: 6px;
           }
 
-          .onboard-stage {
-            width: min(310px, 100%);
-            height: clamp(260px, calc(100dvh - 390px), 320px);
-            min-height: 260px;
+          .ob-heading {
+            margin-top: 9px;
           }
 
-          .onboard-benefit {
+          .ob-heading h1 {
+            font-size: 24px;
+          }
+
+          .ob-heading p {
+            margin-top: 5px;
+            font-size: 8px;
+          }
+
+          .ob-stage {
+            height: 255px;
+            min-height: 255px;
+            margin-top: 5px;
+          }
+
+          .ob-benefit {
             width: 101px;
-            min-height: 120px;
+            height: 116px;
+            padding: 6px;
           }
 
-          .onboard-benefit-visual {
-            height: 52px;
+          .ob-card-visual {
+            height: 51px;
           }
 
-          .onboard-center-card {
-            width: 120px;
-            min-height: 151px;
+          .ob-card-copy {
+            padding-top: 5px;
           }
 
-          .onboard-center-card h2 {
-            font-size: 15px;
+          .ob-benefit h2 {
+            font-size: 9.5px;
           }
 
-          .onboard-benefit-1,
-          .onboard-benefit-2 {
-            top: 5px;
+          .ob-benefit p {
+            font-size: 6.5px;
+            margin-left: 0;
+            margin-top: 3px;
           }
 
-          .onboard-benefit-3,
-          .onboard-benefit-4 {
-            bottom: 5px;
+          .ob-card-icon {
+            display: none;
+          }
+
+          .ob-center {
+            width: 116px;
+            height: 128px;
+          }
+
+          .ob-center-star {
+            font-size: 21px;
+          }
+
+          .ob-center-brand {
+            font-size: 11px;
+          }
+
+          .ob-center-divider {
+            margin: 6px 0;
+          }
+
+          .ob-center-message {
+            font-size: 6px;
+          }
+
+          .ob-bottom-title {
+            font-size: 11px;
+          }
+
+          .ob-start {
+            height: 38px;
+            margin-top: 5px;
+            font-size: 10px;
+          }
+
+          .ob-agree {
+            font-size: 7px;
+            margin-top: 4px;
+          }
+
+          .ob-footer {
+            margin-top: 3px;
+          }
+        }
+
+        @media (max-width: 360px) {
+          .ob-stage {
+            width: 320px;
+          }
+
+          .ob-benefit {
+            width: 96px;
+          }
+
+          .ob-center {
+            width: 110px;
           }
         }
 
         @media (prefers-reduced-motion: reduce) {
-          .onboard-benefit {
-            animation: none;
-            opacity: 1;
-          }
-
-          .onboard-start,
-          .onboard-benefit {
-            transition: none;
+          .ob-page * {
+            scroll-behavior: auto !important;
+            animation: none !important;
+            transition: none !important;
           }
         }
       `}</style>
 
-      <header className="onboard-topbar">
-        <div className="onboard-wordmark">
-          <span className="onboard-wordmark-star">✦</span>
+      <header className="ob-top">
+        <div className="ob-logo">
+          <span className="ob-logo-star">✦</span>
           <span>
-            Founder<span style={{ color: C.accent }}>OS</span>
+            Founder<span style={{ color: "#f0b34a" }}>OS</span>
           </span>
         </div>
-
-        <div className="onboard-top-note">No forms. Just talk.</div>
       </header>
 
-      <section className="onboard-heading">
-        <div className="onboard-eyebrow">YOUR AI CO-FOUNDER</div>
+      <section className="ob-heading">
+        <div className="ob-eyebrow">YOUR AI CO-FOUNDER</div>
         <h1>
           From chaos to <span>clarity.</span>
         </h1>
         <p>
-          Your co-founder for the real world. Think, decide, validate and
-          execute — through one conversation.
+          Your AI co-founder for the real world. Think, decide, validate and
+          execute — all in one place.
         </p>
       </section>
 
-      <section className="onboard-stage" aria-label="FounderOS capabilities">
-        <div className="onboard-stage-ring" />
+      <main className="ob-stage" aria-label="FounderOS capabilities">
+        <div className="ob-ring" aria-hidden="true" />
 
         {BENEFITS.map((benefit, index) => (
-          <BenefitCard key={benefit.key} benefit={benefit} index={index} />
+          <BenefitCard
+            key={benefit.key}
+            benefit={benefit}
+            index={index}
+          />
         ))}
 
         <CenterCard />
-      </section>
+      </main>
 
-      <section className="onboard-cta">
-        <div className="onboard-cta-title">Ready to start building?</div>
-        <div className="onboard-cta-subtitle">
-          No onboarding forms. Just a conversation.
-        </div>
+      <section className="ob-bottom">
+        <div className="ob-bottom-title">Ready to start building?</div>
 
-        <label className="onboard-agree">
+        <button
+          className="ob-start"
+          onClick={start}
+          disabled={!agreed || starting}
+        >
+          {starting ? "Starting…" : "Start with FounderOS"}
+          {!starting && <ArrowRight size={15} />}
+        </button>
+
+        <label className="ob-agree">
           <input
             type="checkbox"
             checked={agreed}
@@ -1174,25 +1170,10 @@ export function Onboarding({ onDone }) {
             </a>
           </span>
         </label>
-
-        <button
-          className="onboard-start"
-          onClick={start}
-          disabled={!agreed || starting}
-        >
-          {starting ? "Starting…" : "Start with FounderOS"}
-          {!starting && <ArrowRight size={15} />}
-        </button>
-
-        <div className="onboard-note-bottom">
-          FounderOS learns about your company inside Chat.
-        </div>
       </section>
 
-      <footer className="onboard-footer">
-        FOUNDERS BUILD
-        <br />
-        A BRIGHTER TOMORROW
+      <footer className="ob-footer">
+        BUILD A BRIGHTER TOMORROW
       </footer>
 
       {showTerms && (
@@ -1201,7 +1182,7 @@ export function Onboarding({ onDone }) {
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0,0,0,0.68)",
+            background: "rgba(0,0,0,.70)",
             zIndex: 50,
             display: "flex",
             alignItems: "flex-end",
@@ -1247,7 +1228,6 @@ export function Onboarding({ onDone }) {
 
             <div style={{ overflowY: "auto" }}>
               <p style={styles.termsP}>{TERMS_INTRO}</p>
-
               {TERMS_BODY.map((t, i) => (
                 <p
                   key={i}
