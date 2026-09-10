@@ -702,6 +702,7 @@ export function Onboarding({ onDone }) {
 
           .ob-next {
             height: 38px;
+            width: 100%;
           }
 
           .ob-agree {
@@ -761,10 +762,6 @@ export function Onboarding({ onDone }) {
             <div className="ob-eyebrow">{current.eyebrow}</div>
 
             <div className="ob-phone">
-              <div className="ob-phone-top">
-                <span>9:41</span>
-                <span>● ● ●</span>
-              </div>
 
               <div className="ob-phone-content">
                 <SlideVisual type={current.icon} />
