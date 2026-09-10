@@ -354,27 +354,27 @@ export function Onboarding({ onDone }) {
         }
 
         .ob-benefit-1 {
-          left: 12%;
-          top: 1%;
-          transform: rotate(-1.2deg);
+          left: 15%;
+          top: 4%;
+          transform: rotate(-2deg);
         }
 
         .ob-benefit-2 {
-          right: 12%;
-          top: 1%;
-          transform: rotate(1.2deg);
+          right: 15%;
+          top: 4%;
+          transform: rotate(2deg);
         }
 
         .ob-benefit-3 {
-          left: 12%;
-          bottom: 1%;
-          transform: rotate(1.2deg);
+          left: 15%;
+          bottom: 4%;
+          transform: rotate(2deg);
         }
 
         .ob-benefit-4 {
-          right: 12%;
-          bottom: 1%;
-          transform: rotate(-1.2deg);
+          right: 15%;
+          bottom: 4%;
+          transform: rotate(-2deg);
         }
 
         .ob-card-visual {
@@ -796,23 +796,23 @@ export function Onboarding({ onDone }) {
           }
 
           .ob-benefit-1 {
-            left: 10%;
-            top: 0;
+            left: 12%;
+            top: 1%;
           }
 
           .ob-benefit-2 {
-            right: 10%;
-            top: 0;
+            right: 12%;
+            top: 1%;
           }
 
           .ob-benefit-3 {
-            left: 10%;
-            bottom: 0;
+            left: 12%;
+            bottom: 1%;
           }
 
           .ob-benefit-4 {
-            right: 10%;
-            bottom: 0;
+            right: 12%;
+            bottom: 1%;
           }
 
           .ob-card-visual {
@@ -1021,12 +1021,12 @@ export function Onboarding({ onDone }) {
 
           .ob-benefit-1,
           .ob-benefit-3 {
-            left: 11%;
+            left: 12%;
           }
 
           .ob-benefit-2,
           .ob-benefit-4 {
-            right: 11%;
+            right: 12%;
           }
 
           .ob-card-visual {
@@ -1103,12 +1103,12 @@ export function Onboarding({ onDone }) {
 
           .ob-benefit-1,
           .ob-benefit-3 {
-            left: 9%;
+            left: 10%;
           }
 
           .ob-benefit-2,
           .ob-benefit-4 {
-            right: 9%;
+            right: 10%;
           }
 
           .ob-center {
