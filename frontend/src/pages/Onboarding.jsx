@@ -354,25 +354,25 @@ export function Onboarding({ onDone }) {
         }
 
         .ob-benefit-1 {
-          left: 12%;
+          left: 1%;
           top: 1%;
           transform: rotate(-1.2deg);
         }
 
         .ob-benefit-2 {
-          right: 12%;
+          right: 1%;
           top: 1%;
           transform: rotate(1.2deg);
         }
 
         .ob-benefit-3 {
-          left: 12%;
+          left: 1%;
           bottom: 1%;
           transform: rotate(1.2deg);
         }
 
         .ob-benefit-4 {
-          right: 12%;
+          right: 1%;
           bottom: 1%;
           transform: rotate(-1.2deg);
         }
@@ -796,22 +796,22 @@ export function Onboarding({ onDone }) {
           }
 
           .ob-benefit-1 {
-            left: 10%;
+            left: 0;
             top: 0;
           }
 
           .ob-benefit-2 {
-            right: 10%;
+            right: 0;
             top: 0;
           }
 
           .ob-benefit-3 {
-            left: 10%;
+            left: 0;
             bottom: 0;
           }
 
           .ob-benefit-4 {
-            right: 10%;
+            right: 0;
             bottom: 0;
           }
 
@@ -1019,16 +1019,6 @@ export function Onboarding({ onDone }) {
             padding: 6px;
           }
 
-          .ob-benefit-1,
-          .ob-benefit-3 {
-            left: 11%;
-          }
-
-          .ob-benefit-2,
-          .ob-benefit-4 {
-            right: 11%;
-          }
-
           .ob-card-visual {
             height: 51px;
           }
@@ -1099,16 +1089,6 @@ export function Onboarding({ onDone }) {
 
           .ob-benefit {
             width: 96px;
-          }
-
-          .ob-benefit-1,
-          .ob-benefit-3 {
-            left: 9%;
-          }
-
-          .ob-benefit-2,
-          .ob-benefit-4 {
-            right: 9%;
           }
 
           .ob-center {
