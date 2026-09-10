@@ -805,30 +805,14 @@ export function Onboarding({ onDone }) {
           }
 
           /* Top cards overlap inward toward the hub */
-          .ob-benefit-1 {
-            left: 2%;
-            top: 8%;
-            transform: rotate(-3deg);
-          }
+          .ob-benefit-1 { left: 8%; top: 8%; transform: rotate(-3deg); }
 
-          .ob-benefit-2 {
-            right: 2%;
-            top: 8%;
-            transform: rotate(3deg);
-          }
+          .ob-benefit-2 { right: 8%; top: 8%; transform: rotate(3deg); }
 
           /* Bottom cards overlap inward toward the hub */
-          .ob-benefit-3 {
-            left: 2%;
-            bottom: 8%;
-            transform: rotate(3deg);
-          }
+          .ob-benefit-3 { left: 8%; bottom: 8%; transform: rotate(3deg); }
 
-          .ob-benefit-4 {
-            right: 2%;
-            bottom: 8%;
-            transform: rotate(-3deg);
-          }
+          .ob-benefit-4 { right: 8%; bottom: 8%; transform: rotate(-3deg); }
 
           .ob-card-visual {
             height: 56%;
@@ -985,7 +969,7 @@ export function Onboarding({ onDone }) {
             margin-top: 2px;
           }
 
-          /* Push the corner cards further under the center on short phones */
+          /* Bring the corner cards closer without changing their size */
           .ob-benefit {
             width: 44%;
             height: 102px;
@@ -993,25 +977,13 @@ export function Onboarding({ onDone }) {
             padding: 6px;
           }
 
-          .ob-benefit-1 {
-            left: 0;
-            top: 5%;
-          }
+          .ob-benefit-1 { left: 6%; top: 5%; }
 
-          .ob-benefit-2 {
-            right: 0;
-            top: 5%;
-          }
+          .ob-benefit-2 { right: 6%; top: 5%; }
 
-          .ob-benefit-3 {
-            left: 0;
-            bottom: 5%;
-          }
+          .ob-benefit-3 { left: 6%; bottom: 5%; }
 
-          .ob-benefit-4 {
-            right: 0;
-            bottom: 5%;
-          }
+          .ob-benefit-4 { right: 6%; bottom: 5%; }
 
           .ob-card-visual {
             height: 48px;
@@ -1084,15 +1056,9 @@ export function Onboarding({ onDone }) {
             min-height: 96px;
           }
 
-          .ob-benefit-1,
-          .ob-benefit-3 {
-            left: -1%;
-          }
+          .ob-benefit-1, .ob-benefit-3 { left: 5%; }
 
-          .ob-benefit-2,
-          .ob-benefit-4 {
-            right: -1%;
-          }
+          .ob-benefit-2, .ob-benefit-4 { right: 5%; }
 
           .ob-center {
             width: 61%;
