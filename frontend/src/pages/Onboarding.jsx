@@ -580,9 +580,16 @@ export function Onboarding({ onDone }) {
         .ob-controls {
           width: min(310px, 72vw);
           flex: 0 0 auto;
+          align-self: center;
+          margin-left: auto;
+          margin-right: auto;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
         }
 
         .ob-dots {
+          width: 100%;
           display: flex;
           justify-content: center;
           gap: 7px;
@@ -608,6 +615,7 @@ export function Onboarding({ onDone }) {
 
         .ob-next {
           width: 100%;
+          align-self: center;
           height: 44px;
           border: 0;
           border-radius: 12px;
@@ -709,39 +717,34 @@ export function Onboarding({ onDone }) {
           }
         }
 
-        /* Small screens: keep the phone width, but let the central panel
-           use the full available vertical space instead of being aspect-ratio limited. */
+        /*
+         * MOBILE PHONE PANEL
+         *
+         * Keep the same width, but give the central phone an explicit height
+         * based on the viewport. Using 100% here was unreliable because the
+         * flex parent did not have a definite height in the browser.
+         */
         @media (max-width: 700px) {
           .ob-main {
             width: 100%;
-            padding-top: 8px;
-            padding-bottom: 8px;
+            min-height: 0;
+            padding: 6px 0;
           }
 
           .ob-slide {
+            width: 100%;
             height: 100%;
             min-height: 0;
           }
 
           .ob-phone {
             width: min(310px, 72vw);
-            height: 100%;
+            height: calc(100dvh - 190px);
+            min-height: 360px;
             max-height: none;
             aspect-ratio: auto;
             box-sizing: border-box;
-          }
-
-          .ob-phone-content {
-            min-height: 0;
-          }
-        }
-
-
-        /* Final mobile override: height follows the available onboarding area. */
-        @media (max-width: 700px) {
-          .ob-phone {
-            max-height: none;
-            aspect-ratio: auto;
+            flex: 0 0 auto;
           }
         }
 
@@ -753,7 +756,8 @@ export function Onboarding({ onDone }) {
 
           .ob-phone {
             width: min(280px, 78vw);
-            height: 100%;
+            height: calc(100dvh - 180px);
+            min-height: 340px;
             max-height: none;
             aspect-ratio: auto;
           }
@@ -773,6 +777,21 @@ export function Onboarding({ onDone }) {
 
           .ob-controls {
             width: min(280px, 78vw);
+          }
+        }
+
+        /* Short Android phones: use the remaining viewport, not a vh cap. */
+        @media (max-width: 700px) and (max-height: 700px) {
+          .ob-phone {
+            height: calc(100dvh - 165px);
+            min-height: 300px;
+          }
+        }
+
+        @media (max-width: 380px) and (max-height: 700px) {
+          .ob-phone {
+            height: calc(100dvh - 155px);
+            min-height: 285px;
           }
         }
       `}</style>
