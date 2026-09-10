@@ -789,9 +789,14 @@ export function Onboarding({ onDone }) {
           }
 
           /* Same 220 x 220 cards — only their distance from center changes. */
-          .ob-benefit {
-            width: 220px;
-            height: 220px;
+           .ob-benefit {
+            position: absolute;
+            width: min(38%, 142px);
+            height: 142px;
+            min-height: 142px;
+            padding: 7px;
+            border-radius: 14px;
+            z-index: 2;
           }
 
           .ob-benefit-1 {
@@ -898,6 +903,50 @@ export function Onboarding({ onDone }) {
           .ob-benefit-2,
           .ob-benefit-4 {
             right: calc(50% - 270px);
+          }
+        }
+
+
+        /* Small phones: keep the five-card composition fully inside the viewport */
+        @media (max-width: 480px) {
+          .ob-cards {
+            width: 100%;
+            max-width: 100vw;
+            overflow: visible;
+          }
+
+          .ob-card {
+            width: min(31vw, 148px);
+            height: min(31vw, 148px);
+          }
+
+          .ob-center-card {
+            width: min(31vw, 148px);
+            height: min(31vw, 148px);
+          }
+        }
+
+        @media (max-width: 380px) {
+          .ob-card {
+            width: min(29vw, 120px);
+            height: min(29vw, 120px);
+          }
+
+          .ob-center-card {
+            width: min(29vw, 120px);
+            height: min(29vw, 120px);
+          }
+        }
+
+        @media (max-width: 330px) {
+          .ob-card {
+            width: min(27vw, 105px);
+            height: min(27vw, 105px);
+          }
+
+          .ob-center-card {
+            width: min(27vw, 105px);
+            height: min(27vw, 105px);
           }
         }
 
