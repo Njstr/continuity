@@ -1,103 +1,130 @@
 import React, { useEffect, useState } from "react";
-import { ArrowRight, CheckCircle2, Search, Target, TrendingUp, X } from "lucide-react";
-import { styles } from "../styles/styles";
+import {
+  ArrowRight,
+  BarChart3,
+  CheckCircle2,
+  GitBranch,
+  Rocket,
+  Search,
+  X,
+} from "lucide-react";
 import { C, F, globalCss } from "../styles/theme";
-import { COUNTRIES, COUNTRY_TO_CURRENCY, TERMS_INTRO, TERMS_BODY, todayStr } from "../constants";
+import {
+  COUNTRIES,
+  COUNTRY_TO_CURRENCY,
+  TERMS_BODY,
+  TERMS_INTRO,
+  todayStr,
+} from "../constants";
 
-/*
- * FounderOS onboarding
- *
- * Single-screen product introduction.
- * No founder/company questions are collected here; the existing Chat flow
- * handles that conversationally after this page.
- *
- * Desktop:
- *   two cards on top + two cards on bottom, with the FounderOS card
- *   centered and layered above them.
- *
- * Mobile:
- *   the same composition is scaled with viewport-relative dimensions so
- *   the complete experience stays inside one screen with no page scrolling.
- */
-
-const BENEFITS = [
+const SLIDES = [
   {
-    key: "validate",
-    icon: Search,
-    title: "Validate",
-    description: "Find real evidence before building.",
+    key: "welcome",
+    eyebrow: "WELCOME TO FOUNDEROS",
+    title: (
+      <>
+        Turn ideas into
+        <br />
+        <span>informed decisions.</span>
+      </>
+    ),
+    description:
+      "Make better decisions, build with confidence, and track what matters — all in one place.",
+    icon: "spark",
   },
   {
-    key: "guide",
-    icon: Target,
-    title: "Guide",
-    description: "Know what to do next with clarity.",
+    key: "validate",
+    eyebrow: "VALIDATE YOUR IDEAS",
+    title: (
+      <>
+        Find the
+        <br />
+        <span>real signal.</span>
+      </>
+    ),
+    description:
+      "Explore evidence, market signals, and customer pain before you spend time building.",
+    icon: "validate",
   },
   {
     key: "decide",
-    icon: TrendingUp,
-    title: "Decide",
-    description: "Think through important choices.",
+    eyebrow: "MAKE BETTER DECISIONS",
+    title: (
+      <>
+        Think clearly.
+        <br />
+        <span>Choose confidently.</span>
+      </>
+    ),
+    description:
+      "Compare options, understand trade-offs, and turn uncertainty into a clear next step.",
+    icon: "decide",
   },
   {
     key: "measure",
-    icon: TrendingUp,
-    title: "Measure",
-    description: "Track what actually matters.",
+    eyebrow: "TRACK WHAT MATTERS",
+    title: (
+      <>
+        See your
+        <br />
+        <span>progress.</span>
+      </>
+    ),
+    description:
+      "Keep an eye on the metrics and outcomes that actually move your goals forward.",
+    icon: "measure",
+  },
+  {
+    key: "ready",
+    eyebrow: "YOU'RE READY",
+    title: (
+      <>
+        Build a
+        <br />
+        <span>clearer tomorrow.</span>
+      </>
+    ),
+    description:
+      "FounderOS brings the thinking together so you can focus on what to do next.",
+    icon: "ready",
   },
 ];
 
-function MiniVisual({ type }) {
+function SlideVisual({ type }) {
   if (type === "validate") {
     return (
-      <div className="ob-visual ob-validate">
-        {[
-          ["Reddit", "✓"],
-          ["Competitors", "✓"],
-          ["Customer pain", "✓"],
-          ["Market signals", "✓"],
-        ].map(([label, check]) => (
-          <div className="ob-evidence-row" key={label}>
-            <span className="ob-evidence-icon">⌕</span>
-            <span>{label}</span>
-            <CheckCircle2 size={14} className="ob-evidence-check" />
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  if (type === "guide") {
-    return (
-      <div className="ob-visual ob-guide">
-        <div className="ob-mini-label">NEXT BEST ACTION</div>
-        <div className="ob-action-row">
-          <span>Interview 5 users</span>
-          <ArrowRight size={13} />
-        </div>
-        <div className="ob-action-meta">
-          <span>◷ 45 min</span>
-          <span>▮▮ High impact</span>
-        </div>
+      <div className="ob-slide-visual ob-visual-validate">
+        {["Reddit", "Competitors", "Customer pain", "Market signals"].map(
+          (item) => (
+            <div className="ob-signal-row" key={item}>
+              <Search size={15} />
+              <span>{item}</span>
+              <CheckCircle2 size={15} />
+            </div>
+          )
+        )}
       </div>
     );
   }
 
   if (type === "decide") {
     return (
-      <div className="ob-visual ob-decide">
-        <div className="ob-mini-question">Build Feature X?</div>
-        <div className="ob-meter">
+      <div className="ob-slide-visual ob-visual-decide">
+        <div className="ob-decision-head">
+          <span>BUILD FEATURE X?</span>
+          <GitBranch size={18} />
+        </div>
+        <div className="ob-decision-row">
           <span>Evidence</span>
-          <div className="ob-meter-track">
-            <div className="ob-meter-fill evidence" />
+          <div className="ob-progress">
+            <i style={{ width: "78%" }} />
           </div>
           <b>78%</b>
         </div>
-        <div className="ob-meter">
+        <div className="ob-decision-row">
           <span>Risk</span>
-          <div className="ob-meter-track">
-            <div className="ob-meter-fill risk" />
+          <div className="ob-progress">
+            <i style={{ width: "32%" }} />
           </div>
           <b>32%</b>
         </div>
@@ -105,99 +132,86 @@ function MiniVisual({ type }) {
     );
   }
 
-  return (
-    <div className="ob-visual ob-measure">
-      <div className="ob-metric">
-        <span>MRR</span>
-        <b>₹49.9K</b>
-        <em>↗ 18%</em>
+  if (type === "measure") {
+    return (
+      <div className="ob-slide-visual ob-visual-measure">
+        <div className="ob-metric-label">MRR</div>
+        <div className="ob-metric-value">₹49.9K</div>
+        <div className="ob-metric-change">↗ 18%</div>
+        <svg viewBox="0 0 260 90" preserveAspectRatio="none">
+          <path
+            d="M4 76 C28 70 30 73 51 60 S82 68 102 48 S130 57 151 39 S181 45 198 29 S226 34 256 8"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="3"
+          />
+          <path
+            d="M4 76 C28 70 30 73 51 60 S82 68 102 48 S130 57 151 39 S181 45 198 29 S226 34 256 8 V90 H4 Z"
+            fill="currentColor"
+            opacity=".08"
+          />
+        </svg>
       </div>
-      <svg viewBox="0 0 150 65" preserveAspectRatio="none" aria-hidden="true">
-        <path
-          d="M2 55 C20 49, 25 53, 39 40 S65 47, 78 30 S105 35, 118 19 S137 22, 148 8"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        />
-        <path
-          d="M2 55 C20 49, 25 53, 39 40 S65 47, 78 30 S105 35, 118 19 S137 22, 148 8 V65 H2 Z"
-          fill="currentColor"
-          opacity=".08"
-        />
-      </svg>
+    );
+  }
+
+  if (type === "ready") {
+    return (
+      <div className="ob-slide-visual ob-visual-ready">
+        <div className="ob-ready-orbit orbit-a" />
+        <div className="ob-ready-orbit orbit-b" />
+        <div className="ob-ready-center">
+          <span>✦</span>
+          <strong>
+            Founder<span>OS</span>
+          </strong>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="ob-slide-visual ob-visual-welcome">
+      <div className="ob-welcome-glow" />
+      <div className="ob-welcome-star">✦</div>
     </div>
   );
 }
 
-function BenefitCard({ benefit, index }) {
-  const Icon = benefit.icon;
-
-  return (
-    <article className={`ob-benefit ob-benefit-${index + 1}`}>
-      <div className="ob-card-visual">
-        <MiniVisual type={benefit.key} />
-      </div>
-
-      <div className="ob-card-copy">
-        <div className="ob-card-title-row">
-          <span className="ob-card-icon">
-            <Icon size={12} />
-          </span>
-          <h2>{benefit.title}</h2>
-        </div>
-        <p>{benefit.description}</p>
-      </div>
-    </article>
-  );
-}
-
-function CenterCard() {
-  return (
-    <article className="ob-center">
-      <div className="ob-center-glow" />
-
-      <div className="ob-center-star">✦</div>
-
-      <div className="ob-center-brand">
-        Founder<span>OS</span>
-      </div>
-
-      <div className="ob-center-divider" />
-
-      <div className="ob-center-message">
-        A clearer
-        <br />
-        <span>tomorrow.</span>
-      </div>
-    </article>
-  );
-}
-
 export function Onboarding({ onDone }) {
+  const [slide, setSlide] = useState(0);
   const [agreed, setAgreed] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const [starting, setStarting] = useState(false);
 
+  const current = SLIDES[slide];
+  const last = slide === SLIDES.length - 1;
+
   useEffect(() => {
-    // Lock document scrolling while this full-screen onboarding is mounted.
-    const previousBodyOverflow = document.body.style.overflow;
-    const previousHtmlOverflow = document.documentElement.style.overflow;
+    const bodyOverflow = document.body.style.overflow;
+    const htmlOverflow = document.documentElement.style.overflow;
 
     document.body.style.overflow = "hidden";
     document.documentElement.style.overflow = "hidden";
 
     return () => {
-      document.body.style.overflow = previousBodyOverflow;
-      document.documentElement.style.overflow = previousHtmlOverflow;
+      document.body.style.overflow = bodyOverflow;
+      document.documentElement.style.overflow = htmlOverflow;
     };
   }, []);
+
+  function next() {
+    if (!last) {
+      setSlide((value) => value + 1);
+    }
+  }
 
   async function start() {
     if (!agreed || starting) return;
 
     setStarting(true);
 
-    // Keep onboarding data-free. Founder/company details are learned in Chat.
+    // Onboarding intentionally collects no founder/company information.
     const country = COUNTRIES[0];
 
     const companyProfile = {
@@ -226,30 +240,28 @@ export function Onboarding({ onDone }) {
           inset: 0;
           width: 100%;
           height: 100dvh;
-          min-height: 0;
           overflow: hidden;
           box-sizing: border-box;
-          background:
-            radial-gradient(circle at 50% 44%, rgba(126, 78, 255, .10), transparent 28%),
-            radial-gradient(circle at 50% 100%, rgba(61, 69, 125, .10), transparent 34%),
-            ${C.bg};
-          color: ${C.text};
-          font-family: ${F.body};
           display: flex;
           flex-direction: column;
           align-items: center;
-          padding: clamp(14px, 2.2vh, 28px) clamp(14px, 3vw, 38px);
-          isolation: isolate;
+          background:
+            radial-gradient(circle at 50% 30%, rgba(110,72,230,.11), transparent 30%),
+            ${C.bg};
+          color: ${C.text};
+          font-family: ${F.body};
+          padding: 22px 20px 16px;
         }
 
-        .ob-page *,
-        .ob-page *::before,
-        .ob-page *::after {
-          box-sizing: border-box;
+        .ob-shell {
+          width: min(520px, 100%);
+          height: 100%;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
         }
 
         .ob-top {
-          width: min(920px, 100%);
           display: flex;
           align-items: center;
           justify-content: space-between;
@@ -259,464 +271,377 @@ export function Onboarding({ onDone }) {
         .ob-logo {
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: 7px;
           font-family: ${F.display};
-          font-size: clamp(16px, 1.8vw, 21px);
+          font-size: 19px;
           font-weight: 650;
-          letter-spacing: -.45px;
+          letter-spacing: -.4px;
         }
 
         .ob-logo-star {
           color: #f0b34a;
-          font-size: 21px;
-          line-height: 1;
+          font-size: 20px;
           filter: drop-shadow(0 0 9px rgba(240,179,74,.35));
         }
 
-        .ob-heading {
+        .ob-skip {
+          border: 0;
+          background: transparent;
+          color: ${C.muted};
+          font-size: 11px;
+          cursor: pointer;
+        }
+
+        .ob-main {
+          flex: 1 1 auto;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
           text-align: center;
-          width: min(720px, 100%);
-          margin-top: clamp(18px, 3.5vh, 38px);
-          flex: 0 0 auto;
+          padding: 12px 0;
         }
 
         .ob-eyebrow {
           color: #f0b34a;
           font-family: ${F.mono};
-          font-size: 9px;
-          letter-spacing: 2px;
+          font-size: 8px;
+          letter-spacing: 2.5px;
+          margin-bottom: 15px;
         }
 
-        .ob-heading h1 {
-          margin: 8px 0 0;
-          font-family: ${F.display};
-          font-size: clamp(30px, 4.5vw, 49px);
-          line-height: 1;
-          letter-spacing: -1.7px;
-        }
-
-        .ob-heading h1 span {
-          color: #f0b34a;
-          text-shadow: 0 0 25px rgba(240,179,74,.18);
-        }
-
-        .ob-heading p {
-          max-width: 600px;
-          margin: 12px auto 0;
-          color: ${C.muted};
-          font-size: clamp(11px, 1.25vw, 14px);
-          line-height: 1.45;
-        }
-
-        /* The main composition is intentionally bounded. Nothing in it
-           determines page height, which keeps the viewport non-scrollable. */
-        .ob-cards {
-          position: relative;
-          width: min(900px, 100%);
-          height: clamp(390px, 50vh, 540px);
-          margin-top: clamp(14px, 2.4vh, 26px);
-          flex: 1 1 auto;
-          max-height: 540px;
-          overflow: visible;
-        }
-
-        .ob-cards .ob-ring {
-          position: absolute;
-          width: min(430px, 50%);
-          aspect-ratio: 1;
-          left: 50%;
-          top: 50%;
-          transform: translate(-50%, -50%);
-          border: 1px solid rgba(240,179,74,.20);
-          border-radius: 50%;
-          box-shadow: 0 0 55px rgba(122,74,255,.08);
-          pointer-events: none;
-        }
-
-        .ob-ring::before {
-          content: "";
-          position: absolute;
-          inset: 15%;
-          border: 1px solid rgba(126,78,255,.12);
-          border-radius: 50%;
-        }
-
-        .ob-benefit {
-          position: absolute;
-          width: 220px;
-          height: 220px;
-          padding: 11px;
-          border: 1px solid rgba(126, 105, 218, .30);
-          border-radius: 20px;
-          background: linear-gradient(145deg, rgba(26,27,48,.96), rgba(13,15,29,.94));
-          box-shadow: 0 16px 45px rgba(0,0,0,.30), 0 0 35px rgba(104,71,230,.07);
-          z-index: 2;
-        }
-
-        .ob-benefit-1 {
-          left: 8%;
-          top: 3%;
-          transform: rotate(-2deg);
-        }
-
-        .ob-benefit-2 {
-          right: 8%;
-          top: 3%;
-          transform: rotate(2deg);
-        }
-
-        .ob-benefit-3 {
-          left: 8%;
-          bottom: 3%;
-          transform: rotate(2deg);
-        }
-
-        .ob-benefit-4 {
-          right: 8%;
-          bottom: 3%;
-          transform: rotate(-2deg);
-        }
-
-        .ob-card-visual {
-          height: 58%;
-          min-height: 105px;
-          border: 1px solid rgba(126,105,218,.18);
-          border-radius: 13px;
-          background: rgba(8,10,21,.62);
-          overflow: hidden;
-        }
-
-        .ob-card-copy {
-          padding: 10px 4px 0;
-        }
-
-        .ob-card-title-row {
-          display: flex;
-          align-items: center;
-          gap: 7px;
-        }
-
-        .ob-card-icon {
-          width: 20px;
-          height: 20px;
-          flex: 0 0 20px;
-          border-radius: 6px;
-          display: grid;
-          place-items: center;
-          color: #c8bcff;
-          background: rgba(126,78,255,.13);
-          border: 1px solid rgba(126,78,255,.25);
-        }
-
-        .ob-benefit h2 {
-          margin: 0;
-          font-family: ${F.display};
-          font-size: 18px;
-          line-height: 1.1;
-          letter-spacing: -.35px;
-        }
-
-        .ob-benefit p {
-          margin: 5px 0 0 27px;
-          color: ${C.muted};
-          font-size: 11px;
-          line-height: 1.35;
-        }
-
-        /* Center card */
-        .ob-center {
-          position: absolute;
-          width: 220px;
-          height: 220px;
-          left: 50%;
-          top: 50%;
-          transform: translate(-50%, -50%);
-          z-index: 5;
-          border: 2px solid rgba(126,78,255,.82);
-          border-radius: 24px;
-          background:
-            radial-gradient(circle at 50% 25%, rgba(126,78,255,.18), transparent 40%),
-            linear-gradient(145deg, rgba(29,27,58,.99), rgba(12,14,29,.99));
-          box-shadow:
-            0 0 0 1px rgba(126,78,255,.08),
-            0 25px 70px rgba(0,0,0,.45),
-            0 0 55px rgba(126,78,255,.16);
+        .ob-slide {
+          width: 100%;
           display: flex;
           flex-direction: column;
           align-items: center;
+        }
+
+        .ob-phone {
+          width: min(310px, 72vw);
+          aspect-ratio: .56;
+          max-height: 49vh;
+          border: 1px solid rgba(126,105,218,.38);
+          border-radius: 27px;
+          background:
+            radial-gradient(circle at 50% 28%, rgba(111,71,230,.10), transparent 30%),
+            linear-gradient(145deg, rgba(18,19,36,.98), rgba(9,11,22,.98));
+          box-shadow:
+            0 24px 70px rgba(0,0,0,.38),
+            0 0 45px rgba(104,71,230,.08);
+          padding: 12px;
+          display: flex;
+          flex-direction: column;
+          position: relative;
+        }
+
+        .ob-phone-top {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          color: #77768d;
+          font-size: 8px;
+          flex: 0 0 auto;
+        }
+
+        .ob-phone-content {
+          flex: 1 1 auto;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
           justify-content: center;
-          text-align: center;
-          overflow: hidden;
+          align-items: flex-start;
+          text-align: left;
+          padding: 12px 9px 8px;
         }
 
-        .ob-center-glow {
-          position: absolute;
-          width: 80%;
-          aspect-ratio: 1;
-          top: -12%;
-          border-radius: 50%;
-          background: rgba(126,78,255,.10);
-          filter: blur(25px);
-        }
-
-        .ob-center-star {
-          position: relative;
-          z-index: 1;
-          color: #f0b34a;
-          font-size: clamp(28px, 3.2vw, 38px);
-          line-height: 1;
-          filter: drop-shadow(0 0 11px rgba(240,179,74,.30));
-        }
-
-        .ob-center-brand {
-          position: relative;
-          z-index: 1;
-          margin-top: 10px;
-          font-family: ${F.display};
-          font-size: clamp(18px, 2vw, 25px);
-          font-weight: 650;
-        }
-
-        .ob-center-brand span {
-          color: #f0b34a;
-        }
-
-        .ob-center-divider {
-          position: relative;
-          z-index: 1;
-          width: 55%;
-          height: 1px;
-          margin: 16px 0 13px;
-          background: rgba(190,180,255,.16);
-        }
-
-        .ob-center-message {
-          position: relative;
-          z-index: 1;
-          font-family: ${F.mono};
-          font-size: clamp(10px, 1.1vw, 13px);
-          line-height: 1.8;
-          letter-spacing: 4px;
-          text-transform: uppercase;
-          color: ${C.muted};
-        }
-
-        .ob-center-message span {
-          color: #f0b34a;
-        }
-
-        /* Mini visual 1 */
-        .ob-visual {
-          position: relative;
+        .ob-slide-visual {
           width: 100%;
-          height: 100%;
-          color: #d9d4ef;
+          height: 126px;
+          flex: 0 0 126px;
+          border: 1px solid rgba(126,105,218,.22);
+          border-radius: 15px;
+          background: rgba(8,10,21,.62);
+          overflow: hidden;
+          position: relative;
         }
 
-        .ob-validate {
-          padding: 12px 13px;
-        }
-
-        .ob-evidence-row {
+        .ob-visual-welcome {
           display: grid;
-          grid-template-columns: 17px 1fr 16px;
-          align-items: center;
-          gap: 7px;
-          height: 25%;
-          color: #c4c0d8;
-          font-size: 9.5px;
-          border-bottom: 1px solid rgba(126,105,218,.08);
+          place-items: center;
+          background:
+            radial-gradient(circle at 50% 50%, rgba(126,78,255,.20), transparent 44%),
+            rgba(8,10,21,.62);
         }
 
-        .ob-evidence-icon {
+        .ob-welcome-glow {
+          position: absolute;
+          width: 90px;
+          height: 90px;
+          border-radius: 50%;
+          background: rgba(126,78,255,.18);
+          filter: blur(24px);
+        }
+
+        .ob-welcome-star {
+          position: relative;
+          color: #f0b34a;
+          font-size: 44px;
+          filter: drop-shadow(0 0 13px rgba(240,179,74,.35));
+        }
+
+        .ob-visual-validate {
+          padding: 12px;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+        }
+
+        .ob-signal-row {
+          display: grid;
+          grid-template-columns: 20px 1fr 18px;
+          gap: 7px;
+          align-items: center;
+          min-height: 25%;
+          border-bottom: 1px solid rgba(126,105,218,.09);
+          color: #c8c4d9;
+          font-size: 9px;
+        }
+
+        .ob-signal-row svg:first-child {
           color: #a99aff;
-          font-size: 15px;
         }
 
-        .ob-evidence-check {
-          color: #2fbd75;
+        .ob-signal-row svg:last-child {
+          color: #36ca87;
         }
 
-        /* Mini visual 2 */
-        .ob-guide {
-          padding: 14px;
+        .ob-visual-decide {
+          padding: 16px 14px;
         }
 
-        .ob-mini-label {
-          color: #85839e;
-          font-family: ${F.mono};
-          font-size: 8px;
-          letter-spacing: .6px;
-        }
-
-        .ob-action-row {
-          margin-top: 8px;
-          height: 39px;
-          padding: 0 10px;
-          border: 1px solid rgba(126,78,255,.35);
-          border-radius: 9px;
-          background: rgba(76,54,151,.18);
+        .ob-decision-head {
           display: flex;
           align-items: center;
           justify-content: space-between;
+          color: #d7d3e7;
           font-size: 10px;
+          font-family: ${F.mono};
+          margin-bottom: 17px;
         }
 
-        .ob-action-row svg {
-          color: #c1b3ff;
+        .ob-decision-head svg {
+          color: #a99aff;
         }
 
-        .ob-action-meta {
-          display: flex;
-          justify-content: space-between;
-          margin-top: 8px;
-          color: #777692;
-          font-size: 8px;
-        }
-
-        .ob-action-meta span:last-child {
-          color: #45c983;
-        }
-
-        /* Mini visual 3 */
-        .ob-decide {
-          padding: 13px;
-        }
-
-        .ob-mini-question {
-          font-size: 11px;
-          margin-bottom: 13px;
-        }
-
-        .ob-meter {
+        .ob-decision-row {
           display: grid;
-          grid-template-columns: 48px 1fr 27px;
+          grid-template-columns: 50px 1fr 28px;
           align-items: center;
           gap: 7px;
-          margin-top: 9px;
+          margin-top: 11px;
           color: #85839e;
           font-size: 8px;
         }
 
-        .ob-meter b {
-          color: #c8c2dd;
-          font-weight: 500;
+        .ob-decision-row b {
+          color: #d0cbdf;
           text-align: right;
+          font-weight: 500;
         }
 
-        .ob-meter-track {
+        .ob-progress {
           height: 7px;
           border-radius: 999px;
-          background: rgba(116,108,156,.22);
           overflow: hidden;
+          background: rgba(116,108,156,.22);
         }
 
-        .ob-meter-fill {
+        .ob-progress i {
+          display: block;
           height: 100%;
           border-radius: inherit;
-        }
-
-        .ob-meter-fill.evidence {
-          width: 78%;
           background: #42c98b;
         }
 
-        .ob-meter-fill.risk {
-          width: 32%;
+        .ob-decision-row:last-child .ob-progress i {
           background: #f0b34a;
         }
 
-        /* Mini visual 4 */
-        .ob-measure {
-          padding: 13px;
+        .ob-visual-measure {
+          padding: 14px;
           color: #43c98b;
         }
 
-        .ob-metric {
-          display: flex;
-          flex-direction: column;
-          position: relative;
-          z-index: 1;
-        }
-
-        .ob-metric span {
+        .ob-metric-label {
           color: #85839e;
           font-family: ${F.mono};
           font-size: 8px;
         }
 
-        .ob-metric b {
-          color: #e4e0f0;
-          font-size: 18px;
-          margin-top: 3px;
+        .ob-metric-value {
+          color: #eeeaf7;
+          font-size: 24px;
+          font-weight: 600;
+          margin-top: 2px;
         }
 
-        .ob-metric em {
-          color: #42c98b;
+        .ob-metric-change {
+          color: #43c98b;
           font-size: 9px;
-          font-style: normal;
-          margin-top: 3px;
+          margin-top: 2px;
         }
 
-        .ob-measure svg {
+        .ob-visual-measure svg {
           position: absolute;
-          left: 12px;
-          right: 12px;
-          bottom: 7px;
-          width: calc(100% - 24px);
-          height: 48px;
+          left: 9px;
+          right: 9px;
+          bottom: 5px;
+          width: calc(100% - 18px);
+          height: 53px;
         }
 
-        /* Bottom */
-        .ob-bottom {
-          width: min(470px, 100%);
-          text-align: center;
-          flex: 0 0 auto;
-          margin-top: clamp(4px, 1vh, 10px);
+        .ob-visual-ready {
+          display: grid;
+          place-items: center;
+          background:
+            radial-gradient(circle, rgba(126,78,255,.16), transparent 48%),
+            rgba(8,10,21,.62);
         }
 
-        .ob-bottom-title {
-          font-family: ${F.display};
-          font-size: 16px;
-          font-weight: 650;
+        .ob-ready-orbit {
+          position: absolute;
+          border: 1px solid rgba(126,78,255,.24);
+          border-radius: 50%;
         }
 
-        .ob-start {
-          width: 100%;
-          height: 48px;
-          margin-top: 10px;
-          border: 0;
-          border-radius: 999px;
+        .orbit-a {
+          width: 68%;
+          aspect-ratio: 1;
+        }
+
+        .orbit-b {
+          width: 43%;
+          aspect-ratio: 1;
+          border-color: rgba(240,179,74,.20);
+        }
+
+        .ob-ready-center {
+          position: relative;
+          z-index: 1;
+          width: 100px;
+          height: 100px;
+          border-radius: 18px;
+          border: 1px solid rgba(126,78,255,.55);
+          background: rgba(17,17,37,.94);
           display: flex;
-          align-items: center;
+          flex-direction: column;
           justify-content: center;
-          gap: 8px;
+          align-items: center;
+          gap: 7px;
+          box-shadow: 0 0 30px rgba(126,78,255,.12);
+        }
+
+        .ob-ready-center > span {
+          color: #f0b34a;
+          font-size: 20px;
+        }
+
+        .ob-ready-center strong {
+          font-family: ${F.display};
+          font-size: 15px;
+        }
+
+        .ob-ready-center strong span {
+          color: #f0b34a;
+        }
+
+        .ob-slide-title {
+          margin: 22px 0 0;
+          font-family: ${F.display};
+          font-size: clamp(25px, 7vw, 34px);
+          line-height: 1.02;
+          letter-spacing: -1px;
+        }
+
+        .ob-slide-title span {
+          color: #a88cff;
+        }
+
+        .ob-slide-description {
+          max-width: 360px;
+          margin: 10px auto 0;
+          color: ${C.muted};
+          font-size: 11px;
+          line-height: 1.5;
+        }
+
+        .ob-controls {
+          width: min(310px, 72vw);
+          flex: 0 0 auto;
+        }
+
+        .ob-dots {
+          display: flex;
+          justify-content: center;
+          gap: 7px;
+          margin: 13px 0 11px;
+        }
+
+        .ob-dot {
+          width: 7px;
+          height: 7px;
+          padding: 0;
+          border: 0;
+          border-radius: 50%;
+          background: #2b2940;
+          cursor: pointer;
+        }
+
+        .ob-dot.active {
+          width: 8px;
+          height: 8px;
+          background: #9c7bff;
+          box-shadow: 0 0 10px rgba(156,123,255,.4);
+        }
+
+        .ob-next {
+          width: 100%;
+          height: 44px;
+          border: 0;
+          border-radius: 12px;
           background: linear-gradient(100deg, #7448ff, #5134df);
           color: white;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          gap: 8px;
           font-family: ${F.display};
-          font-size: 14px;
+          font-size: 12px;
           font-weight: 650;
-          box-shadow: 0 12px 35px rgba(108,68,240,.23);
+          box-shadow: 0 12px 30px rgba(108,68,240,.20);
+          cursor: pointer;
         }
 
-        .ob-start:disabled {
+        .ob-next:disabled {
           opacity: .48;
           cursor: not-allowed;
         }
 
         .ob-agree {
           display: flex;
-          justify-content: center;
           align-items: center;
-          gap: 7px;
-          margin-top: 8px;
+          justify-content: center;
+          gap: 6px;
+          margin-top: 9px;
           color: ${C.muted};
-          font-size: 10.5px;
+          font-size: 8.5px;
         }
 
         .ob-agree input {
-          width: 14px;
-          height: 14px;
+          width: 13px;
+          height: 13px;
           margin: 0;
           accent-color: #7448ff;
         }
@@ -727,407 +652,190 @@ export function Onboarding({ onDone }) {
         }
 
         .ob-footer {
-          margin-top: clamp(6px, 1.2vh, 12px);
-          color: ${C.muted};
-          opacity: .52;
-          font-family: ${F.mono};
-          font-size: 7px;
-          letter-spacing: 2.5px;
-          text-align: center;
           flex: 0 0 auto;
+          margin-top: 10px;
+          text-align: center;
+          color: ${C.muted};
+          opacity: .48;
+          font-family: ${F.mono};
+          font-size: 6px;
+          letter-spacing: 2.5px;
         }
 
-        /* Responsive composition: only the cards container changes height.
-           The five cards keep exactly the same dimensions at every breakpoint. */
-        @media (max-width: 700px) {
+        @media (max-height: 700px) {
           .ob-page {
-            padding: 8px 8px 6px;
+            padding-top: 12px;
+            padding-bottom: 9px;
           }
 
-          .ob-logo {
-            font-size: 15px;
-          }
-
-          .ob-logo-star {
-            font-size: 18px;
-          }
-
-          .ob-heading {
-            margin-top: 8px;
+          .ob-main {
+            padding: 6px 0;
           }
 
           .ob-eyebrow {
-            font-size: 7px;
-            letter-spacing: 1.5px;
+            margin-bottom: 8px;
           }
 
-          .ob-heading h1 {
-            font-size: clamp(24px, 8vw, 32px);
-            line-height: 1.02;
-            letter-spacing: -1px;
+          .ob-phone {
+            width: min(270px, 65vw);
+            max-height: 43vh;
           }
 
-          .ob-heading p {
-            max-width: 320px;
-            margin-top: 5px;
-            font-size: 8px;
-            line-height: 1.3;
+          .ob-slide-visual {
+            height: 105px;
+            flex-basis: 105px;
           }
 
-          /* Height changes; children keep their desktop dimensions. */
-          .ob-cards {
-            width: 100%;
-            height: clamp(330px, 43vh, 430px);
-            min-height: 330px;
-            margin-top: 4px;
-            flex: 0 0 auto;
+          .ob-slide-title {
+            margin-top: 14px;
+            font-size: 24px;
           }
 
-          .ob-cards .ob-ring {
-            width: 390px;
-            max-width: none;
+          .ob-slide-description {
+            margin-top: 6px;
+            font-size: 9px;
           }
 
-          /*
-           * Mobile sizing fix:
-           * width/height include padding and borders, so the contents stay
-           * inside the card instead of overflowing its edges.
-           */
-          .ob-benefit,
-          .ob-card-visual,
-          .ob-visual {
-            box-sizing: border-box;
+          .ob-dots {
+            margin: 8px 0 7px;
           }
 
-          .ob-benefit {
-            overflow: hidden;
-          }
-
-          .ob-card-visual {
-            min-height: 0;
-            height: 56%;
-          }
-
-          .ob-validate {
-            padding: 7px 8px;
-          }
-
-          .ob-evidence-row {
-            grid-template-columns: 12px 1fr 12px;
-            gap: 4px;
-            font-size: 6.5px;
-          }
-
-          .ob-evidence-icon {
-            font-size: 10px;
-          }
-
-          .ob-evidence-check {
-            width: 10px;
-            height: 10px;
-          }
-
-          .ob-guide {
-            padding: 8px;
-          }
-
-          .ob-mini-label {
-            font-size: 5.5px;
-            letter-spacing: .45px;
-          }
-
-          .ob-action-row {
-            margin-top: 5px;
-            height: 25px;
-            padding: 0 6px;
-            border-radius: 6px;
-            font-size: 6.5px;
-          }
-
-          .ob-action-row svg {
-            width: 9px;
-            height: 9px;
-          }
-
-          .ob-action-meta {
-            margin-top: 5px;
-            font-size: 5.5px;
-          }
-
-          .ob-decide {
-            padding: 8px;
-          }
-
-          .ob-mini-question {
-            font-size: 7px;
-            margin-bottom: 6px;
-          }
-
-          .ob-meter {
-            grid-template-columns: 34px 1fr 20px;
-            gap: 4px;
-            margin-top: 5px;
-            font-size: 5.5px;
-          }
-
-          .ob-meter-track {
-            height: 5px;
-          }
-
-          .ob-measure {
-            padding: 8px;
-          }
-
-          .ob-metric span {
-            font-size: 5.5px;
-          }
-
-          .ob-metric b {
-            font-size: 12px;
-            margin-top: 2px;
-          }
-
-          .ob-metric em {
-            font-size: 6px;
-            margin-top: 2px;
-          }
-
-          .ob-measure svg {
-            left: 7px;
-            right: 7px;
-            bottom: 5px;
-            width: calc(100% - 14px);
-            height: 30px;
-          }
-
-          .ob-card-copy {
-            padding: 6px 2px 0;
-          }
-
-          .ob-card-title-row {
-            gap: 4px;
-          }
-
-          .ob-card-icon {
-            width: 14px;
-            height: 14px;
-            flex: 0 0 14px;
-            border-radius: 4px;
-          }
-
-          .ob-card-icon svg {
-            width: 8px;
-            height: 8px;
-          }
-
-          .ob-benefit h2 {
-            font-size: 10px;
-          }
-
-          .ob-benefit p {
-            margin: 3px 0 0 18px;
-            font-size: 6px;
-            line-height: 1.2;
-          }
-
-          /* Same 220 x 220 cards — only their distance from center changes. */
-          .ob-benefit {
-            position: absolute;
-            width: min(38%, 142px);
-            height: 142px;
-            min-height: 142px;
-            padding: 7px;
-            border-radius: 14px;
-            z-index: 2;
-          }
-
-          .ob-benefit-1 {
-            left: calc(50% - 300px);
-            top: 1%;
-          }
-
-          .ob-benefit-2 {
-            right: calc(50% - 300px);
-            top: 1%;
-          }
-
-          .ob-benefit-3 {
-            left: calc(50% - 300px);
-            bottom: 1%;
-          }
-
-          .ob-benefit-4 {
-            right: calc(50% - 300px);
-            bottom: 1%;
-          }
-
-          /* Same square center card. */
-          .ob-center {
-            width: 220px;
-            height: 220px;
-          }
-
-          .ob-bottom-title {
-            font-size: 11px;
-          }
-
-          .ob-start {
+          .ob-next {
             height: 38px;
-            margin-top: 4px;
-            font-size: 10px;
           }
 
           .ob-agree {
-            margin-top: 3px;
-            font-size: 7px;
-          }
-
-          .ob-footer {
-            margin-top: 3px;
-            font-size: 5.5px;
-            letter-spacing: 2px;
+            margin-top: 5px;
           }
         }
 
-        @media (max-width: 700px) and (max-height: 700px) {
-          .ob-cards {
-            height: 300px;
-            min-height: 300px;
+        @media (max-width: 380px) {
+          .ob-page {
+            padding-left: 14px;
+            padding-right: 14px;
           }
 
-          .ob-benefit-1,
-          .ob-benefit-2 {
-            top: -3%;
+          .ob-phone {
+            width: min(280px, 78vw);
           }
 
-          .ob-benefit-3,
-          .ob-benefit-4 {
-            bottom: -3%;
-          }
-        }
-
-        @media (max-width: 430px) {
-          /* The container gets shorter, but the five cards remain 220 x 220. */
-          .ob-cards {
-            height: 285px;
-            min-height: 285px;
+          .ob-phone-content {
+            padding-left: 6px;
+            padding-right: 6px;
           }
 
-          .ob-benefit-1 {
-            left: calc(50% - 285px);
+          .ob-slide-title {
+            font-size: 24px;
           }
 
-          .ob-benefit-2 {
-            right: calc(50% - 285px);
+          .ob-slide-description {
+            font-size: 10px;
           }
 
-          .ob-benefit-3 {
-            left: calc(50% - 285px);
-          }
-
-          .ob-benefit-4 {
-            right: calc(50% - 285px);
-          }
-        }
-
-        @media (max-width: 360px) {
-          .ob-cards {
-            height: 275px;
-            min-height: 275px;
-          }
-
-          /* Bring cards closer without changing their 220 x 220 size. */
-          .ob-benefit-1,
-          .ob-benefit-3 {
-            left: calc(50% - 270px);
-          }
-
-          .ob-benefit-2,
-          .ob-benefit-4 {
-            right: calc(50% - 270px);
-          }
-        }
-
-
-        @media (prefers-reduced-motion: reduce) {
-          .ob-page * {
-            scroll-behavior: auto !important;
-            animation: none !important;
-            transition: none !important;
+          .ob-controls {
+            width: min(280px, 78vw);
           }
         }
       `}</style>
 
-      <header className="ob-top">
-        <div className="ob-logo">
-          <span className="ob-logo-star">✦</span>
-          <span>
-            Founder<span style={{ color: "#f0b34a" }}>OS</span>
-          </span>
-        </div>
-      </header>
+      <div className="ob-shell">
+        <header className="ob-top">
+          <div className="ob-logo">
+            <span className="ob-logo-star">✦</span>
+            <span>
+              Founder<span style={{ color: "#f0b34a" }}>OS</span>
+            </span>
+          </div>
 
-      <section className="ob-heading">
-        <div className="ob-eyebrow">YOUR AI CO-FOUNDER</div>
-        <h1>
-          From chaos to <span>clarity.</span>
-        </h1>
-        <p>
-          Your AI co-founder for the real world. Think, decide, validate and
-          execute — all in one place.
-        </p>
-      </section>
+          <button
+            className="ob-skip"
+            type="button"
+            onClick={() => setSlide(SLIDES.length - 1)}
+          >
+            Skip
+          </button>
+        </header>
 
-      <main className="ob-cards" aria-label="FounderOS capabilities">
-        <div className="ob-ring" aria-hidden="true" />
+        <main className="ob-main">
+          <section className="ob-slide" key={current.key}>
+            <div className="ob-eyebrow">{current.eyebrow}</div>
 
-        {BENEFITS.map((benefit, index) => (
-          <BenefitCard
-            key={benefit.key}
-            benefit={benefit}
-            index={index}
-          />
-        ))}
+            <div className="ob-phone">
+              <div className="ob-phone-top">
+                <span>9:41</span>
+                <span>● ● ●</span>
+              </div>
 
-        <CenterCard />
-      </main>
+              <div className="ob-phone-content">
+                <SlideVisual type={current.icon} />
 
-      <section className="ob-bottom">
-        <div className="ob-bottom-title">Ready to start building?</div>
+                <h1 className="ob-slide-title">{current.title}</h1>
 
-        <button
-          className="ob-start"
-          onClick={start}
-          disabled={!agreed || starting}
-        >
-          {starting ? "Starting…" : "Start with FounderOS"}
-          {!starting && <ArrowRight size={15} />}
-        </button>
+                <p className="ob-slide-description">
+                  {current.description}
+                </p>
+              </div>
+            </div>
+          </section>
+        </main>
 
-        <label className="ob-agree">
-          <input
-            type="checkbox"
-            checked={agreed}
-            onChange={(e) => setAgreed(e.target.checked)}
-          />
-          <span>
-            I accept the{" "}
-            <a
-              href="#terms"
-              onClick={(e) => {
-                e.preventDefault();
-                setShowTerms(true);
-              }}
-            >
-              Terms and Conditions
-            </a>
-          </span>
-        </label>
-      </section>
+        <section className="ob-controls">
+          <div className="ob-dots" aria-label="Onboarding progress">
+            {SLIDES.map((item, index) => (
+              <button
+                key={item.key}
+                type="button"
+                className={`ob-dot ${index === slide ? "active" : ""}`}
+                aria-label={`Go to slide ${index + 1}`}
+                onClick={() => setSlide(index)}
+              />
+            ))}
+          </div>
 
-      <footer className="ob-footer">
-        BUILD A BRIGHTER TOMORROW
-      </footer>
+          {!last ? (
+            <button className="ob-next" type="button" onClick={next}>
+              Next
+              <ArrowRight size={15} />
+            </button>
+          ) : (
+            <>
+              <button
+                className="ob-next"
+                type="button"
+                onClick={start}
+                disabled={!agreed || starting}
+              >
+                {starting ? "Starting…" : "Get Started"}
+                {!starting && <Rocket size={15} />}
+              </button>
+
+              <label className="ob-agree">
+                <input
+                  type="checkbox"
+                  checked={agreed}
+                  onChange={(e) => setAgreed(e.target.checked)}
+                />
+                <span>
+                  I accept the{" "}
+                  <a
+                    href="#terms"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setShowTerms(true);
+                    }}
+                  >
+                    Terms and Conditions
+                  </a>
+                </span>
+              </label>
+            </>
+          )}
+        </section>
+
+        <footer className="ob-footer">
+          IDEAS DESERVE A CLEARER TOMORROW.
+        </footer>
+      </div>
 
       {showTerms && (
         <div
@@ -1135,7 +843,7 @@ export function Onboarding({ onDone }) {
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0,0,0,.70)",
+            background: "rgba(0,0,0,.72)",
             zIndex: 50,
             display: "flex",
             alignItems: "flex-end",
@@ -1150,8 +858,7 @@ export function Onboarding({ onDone }) {
               padding: "16px 18px 24px",
               width: "100%",
               maxHeight: "78vh",
-              display: "flex",
-              flexDirection: "column",
+              overflow: "auto",
             }}
           >
             <div
@@ -1165,7 +872,6 @@ export function Onboarding({ onDone }) {
               <span style={{ fontFamily: F.display, fontSize: 17 }}>
                 Terms & Conditions
               </span>
-
               <button
                 onClick={() => setShowTerms(false)}
                 style={{
@@ -1179,16 +885,9 @@ export function Onboarding({ onDone }) {
               </button>
             </div>
 
-            <div style={{ overflowY: "auto" }}>
-              <p style={styles.termsP}>{TERMS_INTRO}</p>
-              {TERMS_BODY.map((t, i) => (
-                <p
-                  key={i}
-                  style={{ ...styles.termsP, marginTop: 10 }}
-                >
-                  {t}
-                </p>
-              ))}
+            <div style={{ color: C.muted, fontSize: 12, lineHeight: 1.6 }}>
+              <p>{TERMS_INTRO}</p>
+              <p>{TERMS_BODY}</p>
             </div>
           </div>
         </div>
