@@ -737,10 +737,14 @@ export function Onboarding({ onDone }) {
           flex: 0 0 auto;
         }
 
-        /* Tablet / Android */
+        /* Tablet/mobile */
         @media (max-width: 700px) {
           .ob-page {
-            padding: 9px 10px 7px;
+            padding: 11px 12px 9px;
+          }
+
+          .ob-top {
+            width: 100%;
           }
 
           .ob-logo {
@@ -752,7 +756,7 @@ export function Onboarding({ onDone }) {
           }
 
           .ob-heading {
-            margin-top: 10px;
+            margin-top: 14px;
           }
 
           .ob-eyebrow {
@@ -761,75 +765,64 @@ export function Onboarding({ onDone }) {
           }
 
           .ob-heading h1 {
-            font-size: clamp(24px, 8vw, 32px);
+            font-size: clamp(25px, 8vw, 33px);
             letter-spacing: -1px;
             line-height: 1.02;
           }
 
           .ob-heading p {
             max-width: 320px;
-            margin-top: 6px;
-            font-size: 9px;
-            line-height: 1.3;
+            margin-top: 7px;
+            font-size: 9.5px;
+            line-height: 1.35;
           }
 
-          /*
-           * IMPORTANT: the four cards deliberately enter the center card's
-           * footprint. The center has the highest z-index, so it visually
-           * stacks over the four cards on Android instead of merely sitting
-           * between them.
-           */
           .ob-stage {
-            width: min(390px, 100%);
-            height: clamp(275px, 42vh, 345px);
-            min-height: 275px;
-            margin-top: 5px;
+            width: min(380px, 100%);
+            height: clamp(300px, 43vh, 360px);
+            min-height: 300px;
+            margin-top: 8px;
           }
 
           .ob-ring {
-            width: 62%;
+            width: 57%;
           }
 
           .ob-benefit {
-            width: 42%;
-            height: clamp(112px, 16vh, 142px);
+            width: 116px;
+            height: clamp(132px, 17vh, 151px);
             padding: 7px;
             border-radius: 14px;
-            z-index: 2;
           }
 
           .ob-benefit-1 {
-            left: 5%;
-            top: 5%;
-            transform: rotate(-2deg);
+            left: 12%;
+            top: 1%;
           }
 
           .ob-benefit-2 {
-            right: 5%;
-            top: 5%;
-            transform: rotate(2deg);
+            right: 12%;
+            top: 1%;
           }
 
           .ob-benefit-3 {
-            left: 5%;
-            bottom: 5%;
-            transform: rotate(2deg);
+            left: 12%;
+            bottom: 1%;
           }
 
           .ob-benefit-4 {
-            right: 5%;
-            bottom: 5%;
-            transform: rotate(-2deg);
+            right: 12%;
+            bottom: 1%;
           }
 
           .ob-card-visual {
-            height: 58%;
+            height: 66px;
             min-height: 0;
             border-radius: 9px;
           }
 
           .ob-card-copy {
-            padding: 6px 2px 0;
+            padding: 7px 2px 0;
           }
 
           .ob-card-icon {
@@ -845,164 +838,213 @@ export function Onboarding({ onDone }) {
           }
 
           .ob-benefit h2 {
-            font-size: 10.5px;
+            font-size: 11px;
+            letter-spacing: -.2px;
           }
 
           .ob-benefit p {
-            margin: 3px 0 0;
-            font-size: 6.8px;
-            line-height: 1.2;
+            margin: 4px 0 0 22px;
+            font-size: 7.5px;
+            line-height: 1.25;
+          }
+
+          .ob-center {
+            width: 137px;
+            height: 151px;
+            border-radius: 17px;
+          }
+
+          .ob-center-star {
+            font-size: 25px;
+          }
+
+          .ob-center-brand {
+            margin-top: 6px;
+            font-size: 13px;
+          }
+
+          .ob-center-divider {
+            margin: 9px 0 8px;
+            width: 50%;
+          }
+
+          .ob-center-message {
+            font-size: 7px;
+            line-height: 1.75;
+            letter-spacing: 2.3px;
           }
 
           .ob-validate,
           .ob-guide,
           .ob-decide,
           .ob-measure {
-            padding: 7px;
+            padding: 8px;
           }
 
           .ob-evidence-row {
-            grid-template-columns: 12px 1fr 10px;
-            gap: 3px;
-            font-size: 6.2px;
+            grid-template-columns: 12px 1fr 11px;
+            gap: 4px;
+            font-size: 6.8px;
           }
 
           .ob-evidence-icon {
-            font-size: 10px;
+            font-size: 11px;
           }
 
           .ob-evidence-check {
-            width: 8px;
-            height: 8px;
+            width: 9px;
+            height: 9px;
           }
 
           .ob-mini-label {
-            font-size: 5px;
+            font-size: 5.5px;
           }
 
           .ob-action-row {
-            margin-top: 4px;
-            height: 24px;
-            padding: 0 5px;
+            margin-top: 5px;
+            height: 27px;
+            padding: 0 6px;
             border-radius: 6px;
-            font-size: 6px;
+            font-size: 6.8px;
           }
 
           .ob-action-row svg {
-            width: 8px;
-            height: 8px;
+            width: 9px;
+            height: 9px;
           }
 
           .ob-action-meta {
-            margin-top: 4px;
-            font-size: 5px;
-          }
-
-          .ob-center {
-            width: 56%;
-            max-width: 190px;
-            height: 72%;
-            min-height: 125px;
-            max-height: 155px;
-            border-radius: 17px;
-            z-index: 5;
-          }
-
-          .ob-center-star {
-            font-size: 24px;
-          }
-
-          .ob-center-brand {
             margin-top: 5px;
+            font-size: 5.5px;
+          }
+
+          .ob-mini-question {
+            font-size: 7.5px;
+            margin-bottom: 7px;
+          }
+
+          .ob-meter {
+            grid-template-columns: 29px 1fr 18px;
+            gap: 4px;
+            margin-top: 5px;
+            font-size: 5.5px;
+          }
+
+          .ob-meter-track {
+            height: 4px;
+          }
+
+          .ob-metric span {
+            font-size: 5.5px;
+          }
+
+          .ob-metric b {
+            font-size: 12px;
+            margin-top: 2px;
+          }
+
+          .ob-metric em {
+            font-size: 6px;
+          }
+
+          .ob-measure svg {
+            left: 8px;
+            bottom: 4px;
+            width: calc(100% - 16px);
+            height: 31px;
+          }
+
+          .ob-bottom {
+            width: min(300px, 100%);
+            margin-top: 3px;
+          }
+
+          .ob-bottom-title {
             font-size: 13px;
           }
 
-          .ob-center-divider {
-            margin: 8px 0 7px;
-            width: 48%;
+          .ob-start {
+            height: 43px;
+            margin-top: 7px;
+            font-size: 11.5px;
           }
 
-          .ob-center-message {
-            font-size: 6.5px;
-            line-height: 1.7;
-            letter-spacing: 2px;
+          .ob-agree {
+            margin-top: 6px;
+            font-size: 8px;
+          }
+
+          .ob-agree input {
+            width: 12px;
+            height: 12px;
           }
 
           .ob-footer {
-            margin-top: 3px;
+            margin-top: 5px;
             font-size: 5.5px;
             letter-spacing: 2px;
           }
         }
 
-        /* Short Android screens */
+        /* Very short Android screens: scale the composition down rather
+           than allowing anything to extend below the viewport. */
         @media (max-width: 700px) and (max-height: 700px) {
           .ob-page {
-            padding-top: 6px;
-            padding-bottom: 5px;
+            padding-top: 8px;
+            padding-bottom: 6px;
           }
 
           .ob-heading {
-            margin-top: 7px;
+            margin-top: 9px;
           }
 
           .ob-heading h1 {
-            font-size: 23px;
+            font-size: 24px;
           }
 
           .ob-heading p {
-            margin-top: 4px;
-            font-size: 7.5px;
+            margin-top: 5px;
+            font-size: 8px;
           }
 
           .ob-stage {
-            height: 245px;
-            min-height: 245px;
-            margin-top: 3px;
+            height: 255px;
+            min-height: 255px;
+            margin-top: 5px;
           }
 
           .ob-benefit {
-            width: 43%;
-            height: 103px;
+            width: 101px;
+            height: 116px;
             padding: 6px;
           }
 
-          /* Even closer on short Android displays */
           .ob-benefit-1,
           .ob-benefit-3 {
-            left: 3%;
+            left: 12%;
           }
 
           .ob-benefit-2,
           .ob-benefit-4 {
-            right: 3%;
-          }
-
-          .ob-benefit-1,
-          .ob-benefit-2 {
-            top: 4%;
-          }
-
-          .ob-benefit-3,
-          .ob-benefit-4 {
-            bottom: 4%;
+            right: 12%;
           }
 
           .ob-card-visual {
-            height: 50px;
+            height: 51px;
           }
 
           .ob-card-copy {
-            padding-top: 4px;
+            padding-top: 5px;
           }
 
           .ob-benefit h2 {
-            font-size: 9px;
+            font-size: 9.5px;
           }
 
           .ob-benefit p {
-            font-size: 6px;
-            margin-top: 2px;
+            font-size: 6.5px;
+            margin-left: 0;
+            margin-top: 3px;
           }
 
           .ob-card-icon {
@@ -1010,13 +1052,12 @@ export function Onboarding({ onDone }) {
           }
 
           .ob-center {
-            width: 57%;
+            width: 116px;
             height: 128px;
-            min-height: 128px;
           }
 
           .ob-center-star {
-            font-size: 20px;
+            font-size: 21px;
           }
 
           .ob-center-brand {
@@ -1028,7 +1069,7 @@ export function Onboarding({ onDone }) {
           }
 
           .ob-center-message {
-            font-size: 5.7px;
+            font-size: 6px;
           }
 
           .ob-bottom-title {
@@ -1036,43 +1077,42 @@ export function Onboarding({ onDone }) {
           }
 
           .ob-start {
-            height: 36px;
-            margin-top: 4px;
+            height: 38px;
+            margin-top: 5px;
             font-size: 10px;
           }
 
           .ob-agree {
             font-size: 7px;
+            margin-top: 4px;
+          }
+
+          .ob-footer {
             margin-top: 3px;
           }
         }
 
-        /* Very narrow Android phones */
         @media (max-width: 360px) {
           .ob-stage {
-            width: 100%;
-            height: 235px;
+            width: 320px;
           }
 
           .ob-benefit {
-            width: 44%;
-            height: 98px;
+            width: 96px;
           }
 
           .ob-benefit-1,
           .ob-benefit-3 {
-            left: 2%;
+            left: 10%;
           }
 
           .ob-benefit-2,
           .ob-benefit-4 {
-            right: 2%;
+            right: 10%;
           }
 
           .ob-center {
-            width: 58%;
-            height: 122px;
-            min-height: 122px;
+            width: 110px;
           }
         }
 
