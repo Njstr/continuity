@@ -788,8 +788,150 @@ export function Onboarding({ onDone }) {
             max-width: none;
           }
 
+          /*
+           * Mobile sizing fix:
+           * width/height include padding and borders, so the contents stay
+           * inside the card instead of overflowing its edges.
+           */
+          .ob-benefit,
+          .ob-card-visual,
+          .ob-visual {
+            box-sizing: border-box;
+          }
+
+          .ob-benefit {
+            overflow: hidden;
+          }
+
+          .ob-card-visual {
+            min-height: 0;
+            height: 56%;
+          }
+
+          .ob-validate {
+            padding: 7px 8px;
+          }
+
+          .ob-evidence-row {
+            grid-template-columns: 12px 1fr 12px;
+            gap: 4px;
+            font-size: 6.5px;
+          }
+
+          .ob-evidence-icon {
+            font-size: 10px;
+          }
+
+          .ob-evidence-check {
+            width: 10px;
+            height: 10px;
+          }
+
+          .ob-guide {
+            padding: 8px;
+          }
+
+          .ob-mini-label {
+            font-size: 5.5px;
+            letter-spacing: .45px;
+          }
+
+          .ob-action-row {
+            margin-top: 5px;
+            height: 25px;
+            padding: 0 6px;
+            border-radius: 6px;
+            font-size: 6.5px;
+          }
+
+          .ob-action-row svg {
+            width: 9px;
+            height: 9px;
+          }
+
+          .ob-action-meta {
+            margin-top: 5px;
+            font-size: 5.5px;
+          }
+
+          .ob-decide {
+            padding: 8px;
+          }
+
+          .ob-mini-question {
+            font-size: 7px;
+            margin-bottom: 6px;
+          }
+
+          .ob-meter {
+            grid-template-columns: 34px 1fr 20px;
+            gap: 4px;
+            margin-top: 5px;
+            font-size: 5.5px;
+          }
+
+          .ob-meter-track {
+            height: 5px;
+          }
+
+          .ob-measure {
+            padding: 8px;
+          }
+
+          .ob-metric span {
+            font-size: 5.5px;
+          }
+
+          .ob-metric b {
+            font-size: 12px;
+            margin-top: 2px;
+          }
+
+          .ob-metric em {
+            font-size: 6px;
+            margin-top: 2px;
+          }
+
+          .ob-measure svg {
+            left: 7px;
+            right: 7px;
+            bottom: 5px;
+            width: calc(100% - 14px);
+            height: 30px;
+          }
+
+          .ob-card-copy {
+            padding: 6px 2px 0;
+          }
+
+          .ob-card-title-row {
+            gap: 4px;
+          }
+
+          .ob-card-icon {
+            width: 14px;
+            height: 14px;
+            flex: 0 0 14px;
+            border-radius: 4px;
+          }
+
+          .ob-card-icon svg {
+            width: 8px;
+            height: 8px;
+          }
+
+          .ob-benefit h2 {
+            font-size: 10px;
+          }
+
+          .ob-benefit p {
+            margin: 3px 0 0 18px;
+            font-size: 6px;
+            line-height: 1.2;
+          }
+
           /* Same 220 x 220 cards — only their distance from center changes. */
-           .ob-benefit {
+          .ob-benefit {
             position: absolute;
             width: min(38%, 142px);
             height: 142px;
@@ -906,49 +1048,6 @@ export function Onboarding({ onDone }) {
           }
         }
 
-
-        /* Small phones: keep the five-card composition fully inside the viewport */
-        @media (max-width: 480px) {
-          .ob-cards {
-            width: 100%;
-            max-width: 100vw;
-            overflow: visible;
-          }
-
-          .ob-card {
-            width: min(31vw, 148px);
-            height: min(31vw, 148px);
-          }
-
-          .ob-center-card {
-            width: min(31vw, 148px);
-            height: min(31vw, 148px);
-          }
-        }
-
-        @media (max-width: 380px) {
-          .ob-card {
-            width: min(29vw, 120px);
-            height: min(29vw, 120px);
-          }
-
-          .ob-center-card {
-            width: min(29vw, 120px);
-            height: min(29vw, 120px);
-          }
-        }
-
-        @media (max-width: 330px) {
-          .ob-card {
-            width: min(27vw, 105px);
-            height: min(27vw, 105px);
-          }
-
-          .ob-center-card {
-            width: min(27vw, 105px);
-            height: min(27vw, 105px);
-          }
-        }
 
         @media (prefers-reduced-motion: reduce) {
           .ob-page * {
