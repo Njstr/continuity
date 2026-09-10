@@ -310,17 +310,17 @@ export function Onboarding({ onDone }) {
 
         /* The main composition is intentionally bounded. Nothing in it
            determines page height, which keeps the viewport non-scrollable. */
-        .ob-stage {
+        .ob-cards {
           position: relative;
-          width: min(820px, 94vw);
-          height: min(540px, 48vh);
-          min-height: 365px;
+          width: min(900px, 100%);
+          height: clamp(390px, 50vh, 540px);
           margin-top: clamp(14px, 2.4vh, 26px);
           flex: 1 1 auto;
           max-height: 540px;
+          overflow: visible;
         }
 
-        .ob-ring {
+        .ob-cards .ob-ring {
           position: absolute;
           width: min(430px, 50%);
           aspect-ratio: 1;
@@ -343,8 +343,8 @@ export function Onboarding({ onDone }) {
 
         .ob-benefit {
           position: absolute;
-          width: clamp(205px, 27vw, 255px);
-          height: clamp(190px, 21vh, 225px);
+          width: 220px;
+          height: 220px;
           padding: 11px;
           border: 1px solid rgba(126, 105, 218, .30);
           border-radius: 20px;
@@ -354,27 +354,27 @@ export function Onboarding({ onDone }) {
         }
 
         .ob-benefit-1 {
-          left: 1%;
-          top: 1%;
-          transform: rotate(-1.2deg);
+          left: 8%;
+          top: 3%;
+          transform: rotate(-2deg);
         }
 
         .ob-benefit-2 {
-          right: 1%;
-          top: 1%;
-          transform: rotate(1.2deg);
+          right: 8%;
+          top: 3%;
+          transform: rotate(2deg);
         }
 
         .ob-benefit-3 {
-          left: 1%;
-          bottom: 1%;
-          transform: rotate(1.2deg);
+          left: 8%;
+          bottom: 3%;
+          transform: rotate(2deg);
         }
 
         .ob-benefit-4 {
-          right: 1%;
-          bottom: 1%;
-          transform: rotate(-1.2deg);
+          right: 8%;
+          bottom: 3%;
+          transform: rotate(-2deg);
         }
 
         .ob-card-visual {
@@ -426,8 +426,8 @@ export function Onboarding({ onDone }) {
         /* Center card */
         .ob-center {
           position: absolute;
-          width: clamp(205px, 25vw, 270px);
-          aspect-ratio: .92;
+          width: 220px;
+          height: 220px;
           left: 50%;
           top: 50%;
           transform: translate(-50%, -50%);
@@ -737,14 +737,11 @@ export function Onboarding({ onDone }) {
           flex: 0 0 auto;
         }
 
-        /* Tablet/mobile */
+        /* Responsive composition: only the cards container changes height.
+           The five cards keep exactly the same dimensions at every breakpoint. */
         @media (max-width: 700px) {
           .ob-page {
-            padding: 11px 12px 9px;
-          }
-
-          .ob-top {
-            width: 100%;
+            padding: 8px 8px 6px;
           }
 
           .ob-logo {
@@ -756,7 +753,7 @@ export function Onboarding({ onDone }) {
           }
 
           .ob-heading {
-            margin-top: 14px;
+            margin-top: 8px;
           }
 
           .ob-eyebrow {
@@ -765,301 +762,62 @@ export function Onboarding({ onDone }) {
           }
 
           .ob-heading h1 {
-            font-size: clamp(25px, 8vw, 33px);
-            letter-spacing: -1px;
+            font-size: clamp(24px, 8vw, 32px);
             line-height: 1.02;
+            letter-spacing: -1px;
           }
 
           .ob-heading p {
             max-width: 320px;
-            margin-top: 7px;
-            font-size: 9.5px;
-            line-height: 1.35;
+            margin-top: 5px;
+            font-size: 8px;
+            line-height: 1.3;
           }
 
-          .ob-stage {
-            width: min(380px, 100%);
-            height: clamp(300px, 43vh, 360px);
-            min-height: 300px;
-            margin-top: 8px;
+          /* Height changes; children keep their desktop dimensions. */
+          .ob-cards {
+            width: 100%;
+            height: clamp(330px, 43vh, 430px);
+            min-height: 330px;
+            margin-top: 4px;
+            flex: 0 0 auto;
           }
 
-          .ob-ring {
-            width: 57%;
+          .ob-cards .ob-ring {
+            width: 390px;
+            max-width: none;
           }
 
+          /* Same 220 x 220 cards — only their distance from center changes. */
           .ob-benefit {
-            width: 116px;
-            height: clamp(132px, 17vh, 151px);
-            padding: 7px;
-            border-radius: 14px;
+            width: 220px;
+            height: 220px;
           }
 
           .ob-benefit-1 {
-            left: 0;
-            top: 0;
+            left: calc(50% - 300px);
+            top: 1%;
           }
 
           .ob-benefit-2 {
-            right: 0;
-            top: 0;
+            right: calc(50% - 300px);
+            top: 1%;
           }
 
           .ob-benefit-3 {
-            left: 0;
-            bottom: 0;
+            left: calc(50% - 300px);
+            bottom: 1%;
           }
 
           .ob-benefit-4 {
-            right: 0;
-            bottom: 0;
+            right: calc(50% - 300px);
+            bottom: 1%;
           }
 
-          .ob-card-visual {
-            height: 66px;
-            min-height: 0;
-            border-radius: 9px;
-          }
-
-          .ob-card-copy {
-            padding: 7px 2px 0;
-          }
-
-          .ob-card-icon {
-            width: 16px;
-            height: 16px;
-            flex-basis: 16px;
-            border-radius: 5px;
-          }
-
-          .ob-card-icon svg {
-            width: 9px;
-            height: 9px;
-          }
-
-          .ob-benefit h2 {
-            font-size: 11px;
-            letter-spacing: -.2px;
-          }
-
-          .ob-benefit p {
-            margin: 4px 0 0 22px;
-            font-size: 7.5px;
-            line-height: 1.25;
-          }
-
+          /* Same square center card. */
           .ob-center {
-            width: 137px;
-            height: 151px;
-            border-radius: 17px;
-          }
-
-          .ob-center-star {
-            font-size: 25px;
-          }
-
-          .ob-center-brand {
-            margin-top: 6px;
-            font-size: 13px;
-          }
-
-          .ob-center-divider {
-            margin: 9px 0 8px;
-            width: 50%;
-          }
-
-          .ob-center-message {
-            font-size: 7px;
-            line-height: 1.75;
-            letter-spacing: 2.3px;
-          }
-
-          .ob-validate,
-          .ob-guide,
-          .ob-decide,
-          .ob-measure {
-            padding: 8px;
-          }
-
-          .ob-evidence-row {
-            grid-template-columns: 12px 1fr 11px;
-            gap: 4px;
-            font-size: 6.8px;
-          }
-
-          .ob-evidence-icon {
-            font-size: 11px;
-          }
-
-          .ob-evidence-check {
-            width: 9px;
-            height: 9px;
-          }
-
-          .ob-mini-label {
-            font-size: 5.5px;
-          }
-
-          .ob-action-row {
-            margin-top: 5px;
-            height: 27px;
-            padding: 0 6px;
-            border-radius: 6px;
-            font-size: 6.8px;
-          }
-
-          .ob-action-row svg {
-            width: 9px;
-            height: 9px;
-          }
-
-          .ob-action-meta {
-            margin-top: 5px;
-            font-size: 5.5px;
-          }
-
-          .ob-mini-question {
-            font-size: 7.5px;
-            margin-bottom: 7px;
-          }
-
-          .ob-meter {
-            grid-template-columns: 29px 1fr 18px;
-            gap: 4px;
-            margin-top: 5px;
-            font-size: 5.5px;
-          }
-
-          .ob-meter-track {
-            height: 4px;
-          }
-
-          .ob-metric span {
-            font-size: 5.5px;
-          }
-
-          .ob-metric b {
-            font-size: 12px;
-            margin-top: 2px;
-          }
-
-          .ob-metric em {
-            font-size: 6px;
-          }
-
-          .ob-measure svg {
-            left: 8px;
-            bottom: 4px;
-            width: calc(100% - 16px);
-            height: 31px;
-          }
-
-          .ob-bottom {
-            width: min(300px, 100%);
-            margin-top: 3px;
-          }
-
-          .ob-bottom-title {
-            font-size: 13px;
-          }
-
-          .ob-start {
-            height: 43px;
-            margin-top: 7px;
-            font-size: 11.5px;
-          }
-
-          .ob-agree {
-            margin-top: 6px;
-            font-size: 8px;
-          }
-
-          .ob-agree input {
-            width: 12px;
-            height: 12px;
-          }
-
-          .ob-footer {
-            margin-top: 5px;
-            font-size: 5.5px;
-            letter-spacing: 2px;
-          }
-        }
-
-        /* Very short Android screens: scale the composition down rather
-           than allowing anything to extend below the viewport. */
-        @media (max-width: 700px) and (max-height: 700px) {
-          .ob-page {
-            padding-top: 8px;
-            padding-bottom: 6px;
-          }
-
-          .ob-heading {
-            margin-top: 9px;
-          }
-
-          .ob-heading h1 {
-            font-size: 24px;
-          }
-
-          .ob-heading p {
-            margin-top: 5px;
-            font-size: 8px;
-          }
-
-          .ob-stage {
-            height: 255px;
-            min-height: 255px;
-            margin-top: 5px;
-          }
-
-          .ob-benefit {
-            width: 101px;
-            height: 116px;
-            padding: 6px;
-          }
-
-          .ob-card-visual {
-            height: 51px;
-          }
-
-          .ob-card-copy {
-            padding-top: 5px;
-          }
-
-          .ob-benefit h2 {
-            font-size: 9.5px;
-          }
-
-          .ob-benefit p {
-            font-size: 6.5px;
-            margin-left: 0;
-            margin-top: 3px;
-          }
-
-          .ob-card-icon {
-            display: none;
-          }
-
-          .ob-center {
-            width: 116px;
-            height: 128px;
-          }
-
-          .ob-center-star {
-            font-size: 21px;
-          }
-
-          .ob-center-brand {
-            font-size: 11px;
-          }
-
-          .ob-center-divider {
-            margin: 6px 0;
-          }
-
-          .ob-center-message {
-            font-size: 6px;
+            width: 220px;
+            height: 220px;
           }
 
           .ob-bottom-title {
@@ -1068,31 +826,78 @@ export function Onboarding({ onDone }) {
 
           .ob-start {
             height: 38px;
-            margin-top: 5px;
+            margin-top: 4px;
             font-size: 10px;
           }
 
           .ob-agree {
+            margin-top: 3px;
             font-size: 7px;
-            margin-top: 4px;
           }
 
           .ob-footer {
             margin-top: 3px;
+            font-size: 5.5px;
+            letter-spacing: 2px;
+          }
+        }
+
+        @media (max-width: 700px) and (max-height: 700px) {
+          .ob-cards {
+            height: 300px;
+            min-height: 300px;
+          }
+
+          .ob-benefit-1,
+          .ob-benefit-2 {
+            top: -3%;
+          }
+
+          .ob-benefit-3,
+          .ob-benefit-4 {
+            bottom: -3%;
+          }
+        }
+
+        @media (max-width: 430px) {
+          /* The container gets shorter, but the five cards remain 220 x 220. */
+          .ob-cards {
+            height: 285px;
+            min-height: 285px;
+          }
+
+          .ob-benefit-1 {
+            left: calc(50% - 285px);
+          }
+
+          .ob-benefit-2 {
+            right: calc(50% - 285px);
+          }
+
+          .ob-benefit-3 {
+            left: calc(50% - 285px);
+          }
+
+          .ob-benefit-4 {
+            right: calc(50% - 285px);
           }
         }
 
         @media (max-width: 360px) {
-          .ob-stage {
-            width: 320px;
+          .ob-cards {
+            height: 275px;
+            min-height: 275px;
           }
 
-          .ob-benefit {
-            width: 96px;
+          /* Bring cards closer without changing their 220 x 220 size. */
+          .ob-benefit-1,
+          .ob-benefit-3 {
+            left: calc(50% - 270px);
           }
 
-          .ob-center {
-            width: 110px;
+          .ob-benefit-2,
+          .ob-benefit-4 {
+            right: calc(50% - 270px);
           }
         }
 
@@ -1125,7 +930,7 @@ export function Onboarding({ onDone }) {
         </p>
       </section>
 
-      <main className="ob-stage" aria-label="FounderOS capabilities">
+      <main className="ob-cards" aria-label="FounderOS capabilities">
         <div className="ob-ring" aria-hidden="true" />
 
         {BENEFITS.map((benefit, index) => (
