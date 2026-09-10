@@ -702,11 +702,46 @@ export function Onboarding({ onDone }) {
 
           .ob-next {
             height: 38px;
-            width: 100%;
           }
 
           .ob-agree {
             margin-top: 5px;
+          }
+        }
+
+        /* Small screens: keep the phone width, but let the central panel
+           use the full available vertical space instead of being aspect-ratio limited. */
+        @media (max-width: 700px) {
+          .ob-main {
+            width: 100%;
+            padding-top: 8px;
+            padding-bottom: 8px;
+          }
+
+          .ob-slide {
+            height: 100%;
+            min-height: 0;
+          }
+
+          .ob-phone {
+            width: min(310px, 72vw);
+            height: 100%;
+            max-height: none;
+            aspect-ratio: auto;
+            box-sizing: border-box;
+          }
+
+          .ob-phone-content {
+            min-height: 0;
+          }
+        }
+
+
+        /* Final mobile override: height follows the available onboarding area. */
+        @media (max-width: 700px) {
+          .ob-phone {
+            max-height: none;
+            aspect-ratio: auto;
           }
         }
 
@@ -718,6 +753,9 @@ export function Onboarding({ onDone }) {
 
           .ob-phone {
             width: min(280px, 78vw);
+            height: 100%;
+            max-height: none;
+            aspect-ratio: auto;
           }
 
           .ob-phone-content {
@@ -762,6 +800,10 @@ export function Onboarding({ onDone }) {
             <div className="ob-eyebrow">{current.eyebrow}</div>
 
             <div className="ob-phone">
+              <div className="ob-phone-top">
+                <span>9:41</span>
+                <span>● ● ●</span>
+              </div>
 
               <div className="ob-phone-content">
                 <SlideVisual type={current.icon} />
