@@ -3526,10 +3526,6 @@ export function Onboarding({ onDone }) {
           {starting ? "Starting…" : "Start with FounderOS"}
           {!starting && <ArrowRight size={15} />}
         </button>
-
-        <div className="onboard-note-bottom">
-          FounderOS learns about your company inside Chat.
-        </div>
       </section>
 
       <footer className="onboard-footer">
