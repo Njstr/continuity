@@ -54,12 +54,13 @@ const TASK_COLUMNS = `
   status, evidence_submitted AS evidenceSubmitted, verification_score AS verificationScore,
   verification_status AS verificationStatus, verification_notes AS verificationNotes,
   evidence_config AS evidenceConfig,
+  category, objective_key AS objectiveKey, revisit_conditions AS revisitConditions,
   created_at AS createdAt, updated_at AS updatedAt, completed_at AS completedAt
 `;
 
 const insertTaskStmt = db.prepare(`
-  INSERT INTO tasks (id, user_id, title, objective, why_it_matters, dependencies, steps, current_step_index, completion_criteria, evidence_requirements, required_threshold, priority_factors, priority_score, status, evidence_config, created_at, updated_at)
-  VALUES (@id, @userId, @title, @objective, @whyItMatters, @dependencies, @steps, 0, @completionCriteria, @evidenceRequirements, @requiredThreshold, @priorityFactors, @priorityScore, @status, @evidenceConfig, @createdAt, @updatedAt)
+  INSERT INTO tasks (id, user_id, title, objective, why_it_matters, dependencies, steps, current_step_index, completion_criteria, evidence_requirements, required_threshold, priority_factors, priority_score, status, evidence_config, category, objective_key, revisit_conditions, created_at, updated_at)
+  VALUES (@id, @userId, @title, @objective, @whyItMatters, @dependencies, @steps, 0, @completionCriteria, @evidenceRequirements, @requiredThreshold, @priorityFactors, @priorityScore, @status, @evidenceConfig, @category, @objectiveKey, @revisitConditions, @createdAt, @updatedAt)
 `);
 const getTaskStmt = db.prepare(`SELECT ${TASK_COLUMNS} FROM tasks WHERE id = ? AND user_id = ?`);
 const listTasksStmt = db.prepare(`SELECT ${TASK_COLUMNS} FROM tasks WHERE user_id = ? ORDER BY created_at ASC`);
@@ -94,10 +95,14 @@ function parseTaskRow(row) {
     priorityFactors: fromJSON(row.priorityFactors, {}),
     evidenceSubmitted: fromJSON(row.evidenceSubmitted, []),
     evidenceConfig: fromJSON(row.evidenceConfig, null) || defaultEvidenceConfig(row),
+    // Pre-009 rows have objectiveKey/category = NULL and revisitConditions
+    // = NULL — treated by executionEngine as "never an exact-key
+    // duplicate" / "no documented reason to revisit", never as an error.
+    revisitConditions: fromJSON(row.revisitConditions, []),
   };
 }
 
-function createTask({ userId, title, objective, whyItMatters, dependencies, steps, completionCriteria, evidenceRequirements, requiredThreshold, priorityFactors, priorityScore, status, evidenceConfig }) {
+function createTask({ userId, title, objective, whyItMatters, dependencies, steps, completionCriteria, evidenceRequirements, requiredThreshold, priorityFactors, priorityScore, status, evidenceConfig, category, objectiveKey, revisitConditions }) {
   const id = uid("task");
   const ts = nowISO();
   insertTaskStmt.run({
@@ -115,6 +120,9 @@ function createTask({ userId, title, objective, whyItMatters, dependencies, step
     priorityScore: priorityScore || 0,
     status: status || "LOCKED",
     evidenceConfig: toJSON(evidenceConfig || null),
+    category: category || null,
+    objectiveKey: objectiveKey || null,
+    revisitConditions: toJSON(revisitConditions || []),
     createdAt: ts,
     updatedAt: ts,
   });
