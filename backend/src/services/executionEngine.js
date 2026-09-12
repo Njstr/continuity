@@ -15,6 +15,7 @@
 
 const aiService = require("./aiService");
 const repo = require("../repositories/executionRepository");
+const decisionRepo = require("../repositories/decisionLifecycleRepository");
 const aiTools = require("./aiTools");
 
 // ---- Per-founder mutex (§8 — race-condition protection) ----
@@ -186,36 +187,111 @@ function selectCurrentTask(userId) {
   return repo.getTask(winner.id, userId);
 }
 
-// §6 Rule 2 (unchanged, verified): `hasEligible` below is the actual
-// backend enforcement of "never generate a new task while a pending task
-// exists" — this function is only ever reached via ensureCurrentTask,
-// which itself only calls this after selectCurrentTask already came back
-// empty. There is no code path from a chat message or a progress-summary
-// request to the AI task generator that skips this check.
-async function generateTasksIfNeeded(userId, founderState) {
-  const existing = repo.listTasks(userId);
-  const hasEligible = existing.some((t) => t.status === "LOCKED" || t.status === "AVAILABLE" || t.status === "IN_PROGRESS" || t.status === "AWAITING_EVIDENCE");
-  if (hasEligible) return;
+// ---- Structured context assembly (§14 of the context-aware-task-generation spec) ----
+// This is the ONLY place startup/founder context gets collected from the
+// database before a task-generation decision — aiService.proposeNextTasks
+// never fetches anything itself, it only reasons over whatever this
+// function handed it. Keeping the two separate is the actual backend
+// architecture the spec asks for: "collect and structure context first,
+// then pass it to the AI," not one AI call that also decides what's
+// relevant. Exported standalone (not just used internally) so it can be
+// reasoned about/tested independently of task creation.
+const RECENT_CHANGE_WINDOW_DAYS = 14;
 
-  const completedTasks = existing.filter((t) => t.status === "COMPLETED");
+function buildStartupContext(userId) {
+  const state = repo.getFounderState(userId) || {};
+  const allTasks = repo.listTasks(userId);
+  const completedTasks = allTasks.filter((t) => t.status === "COMPLETED").sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt));
+  // "Blocked" here means the existing, real LOCKED-with-a-dependency
+  // state this system already tracks — not a separate concept invented
+  // for this spec. No skip/overdue concept exists anywhere in this
+  // codebase (no due dates, no skip action in the UI), so neither is
+  // fabricated here; see the implementation summary for that scoping call.
+  const blockedTasks = allTasks.filter((t) => t.status === "LOCKED" && (t.dependencies || []).length > 0);
 
-  // §6 Rule 3/Rule 4 — the model is instructed not to repeat completed
-  // work, but that instruction alone is not trusted: every proposed task
-  // is checked against completed objectives in plain code before it's
-  // ever written to the DB. One retry (excluding whatever just got
-  // rejected) gives the model a real chance to propose something
-  // genuinely different rather than silently falling through to the
-  // generic fallback task on the first collision.
+  // §15 — relevance over volume: only the last 5 completed tasks, and
+  // only their distilled outcome (or a fallback summary string) rather
+  // than raw evidence text, go to the model.
+  const recentlyCompletedWithOutcomes = completedTasks.slice(0, 5).map((t) => ({
+    title: t.title,
+    objectiveKey: t.objectiveKey,
+    category: t.category,
+    completedAt: t.completedAt,
+    // Pre-010 tasks, and tasks completed via a background activity match
+    // rather than the interactive flow, have no structured outcome —
+    // fall back to the verification notes string rather than silently
+    // dropping context for them.
+    summary: (t.outcome && t.outcome.summary) || t.verificationNotes || null,
+    discoveries: (t.outcome && t.outcome.discoveries) || [],
+    decisions: (t.outcome && t.outcome.decisions) || [],
+    implications: (t.outcome && t.outcome.implications) || [],
+  }));
+
+  // §4/§9 — "recent changes" derived straight from founder_state's own
+  // change log (see mergeStateWithChangeLog above), never re-derived or
+  // guessed here. A field counts as "recent" if it changed after the
+  // most recently completed task (so the next decision can see what's
+  // new since then) or, with no completed tasks yet, within the last
+  // RECENT_CHANGE_WINDOW_DAYS — this is what keeps "time passed alone"
+  // from ever being mistaken for a real change.
+  const fieldUpdatedAt = (state.changeLog && state.changeLog.fieldUpdatedAt) || {};
+  const sinceISO = (completedTasks[0] && completedTasks[0].completedAt) || new Date(Date.now() - RECENT_CHANGE_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const recentChanges = Object.entries(fieldUpdatedAt)
+    .filter(([, changedAt]) => changedAt > sinceISO)
+    .map(([field, changedAt]) => `${field} changed (as of ${changedAt})`);
+
+  // §1/§14 — "previous decisions" / "relevant decisions". Kept small and
+  // recent; a lookup failure here is a missing nice-to-have signal, never
+  // something that should block task generation.
+  let recentDecisions = [];
+  try {
+    recentDecisions = decisionRepo.listDecisions(userId, { limit: 5 }).map((d) => ({
+      decisionText: d.decisionText,
+      finalDecisionText: d.finalDecisionText,
+      status: d.status,
+    }));
+  } catch (e) {
+    recentDecisions = [];
+  }
+
+  return {
+    founderState: state,
+    currentBottleneck: state.currentBottleneck || null,
+    currentMilestone: state.currentMilestone || null,
+    recentChanges,
+    completedTasks,
+    recentlyCompletedWithOutcomes,
+    blockedTasks: blockedTasks.map((t) => t.title),
+    recentDecisions,
+    activeTaskTitles: allTasks.map((t) => t.title),
+    // Only ever populated on the readiness-gate path (assessFounderReadiness,
+    // called before this function is ever reached) — by the time
+    // buildStartupContext runs, state.ready is already true.
+    missingCriticalInformation: [],
+  };
+}
+
+// §8/§16 of the context-aware-task-generation spec — the actual decision
+// step: propose → deterministically filter duplicates (§6 Rule 3/Rule 4,
+// unchanged from before) → retry once if everything was rejected →
+// create. Never reached with a pending task already in play — see
+// generateTasksIfNeeded's hasEligible guard below, checked before this is
+// ever called.
+async function determineNextAction(userId, context) {
   async function proposeAndFilter(excludedObjectiveKeys) {
     const proposal = await aiService.proposeNextTasks(userId, {
-      founderState,
-      completedTasks,
-      activeTaskTitles: existing.map((t) => t.title),
+      founderState: context.founderState,
+      completedTasks: context.completedTasks,
+      recentlyCompletedWithOutcomes: context.recentlyCompletedWithOutcomes,
+      recentChanges: context.recentChanges,
+      blockedTasks: context.blockedTasks,
+      recentDecisions: context.recentDecisions,
+      activeTaskTitles: context.activeTaskTitles,
       excludedObjectiveKeys,
     });
     const rejectedKeys = [];
     const accepted = (proposal.tasks || []).filter((t) => {
-      const { duplicate } = isDuplicateOfCompleted(t, completedTasks, founderState);
+      const { duplicate } = isDuplicateOfCompleted(t, context.completedTasks, context.founderState);
       if (duplicate) rejectedKeys.push(slugify(t.objectiveKey || t.title));
       return !duplicate;
     });
@@ -236,7 +312,10 @@ async function generateTasksIfNeeded(userId, founderState) {
       userId,
       title: t.title,
       objective: t.objective,
-      whyItMatters: t.whyItMatters,
+      // whyItMatters is the pre-existing field other/older code may still
+      // read — kept populated (from whyNow, falling back to reason) so
+      // nothing that only knows about whyItMatters silently goes blank.
+      whyItMatters: t.whyNow || t.reason || null,
       dependencies: [], // filled in below once all titles exist
       steps: t.steps || [],
       completionCriteria: t.completionCriteria,
@@ -248,6 +327,10 @@ async function generateTasksIfNeeded(userId, founderState) {
       category: t.category || null,
       objectiveKey: slugify(t.objectiveKey || t.title) || null,
       revisitConditions: t.revisitConditions || [],
+      reason: t.reason || null,
+      whyNow: t.whyNow || null,
+      expectedOutcome: t.expectedOutcome || null,
+      contextReferences: t.contextReferences || [],
     })
   );
 
@@ -255,7 +338,7 @@ async function generateTasksIfNeeded(userId, founderState) {
     if (t.dependsOnTitle) {
       const depTask =
         created.find((c) => c.title === t.dependsOnTitle) ||
-        completedTasks.find((c) => c.title === t.dependsOnTitle);
+        context.completedTasks.find((c) => c.title === t.dependsOnTitle);
       if (depTask) {
         repo.addDependencyAndLock(created[i].id, userId, depTask.id);
       }
@@ -264,6 +347,27 @@ async function generateTasksIfNeeded(userId, founderState) {
       repo.setStatus(created[i].id, userId, "AVAILABLE");
     }
   });
+
+  return created;
+}
+
+// §6 Rule 2 (unchanged, verified): `hasEligible` below is the actual
+// backend enforcement of "never generate a new task while a pending task
+// exists" — this function is only ever reached via ensureCurrentTask,
+// which itself only calls this after selectCurrentTask already came back
+// empty. There is no code path from a chat message or a progress-summary
+// request to the AI task generator that skips this check. §9: nothing in
+// this function or anywhere upstream of it is triggered by elapsed time —
+// it only ever runs because selectCurrentTask found no eligible task,
+// which only happens because one was just completed/never existed, never
+// because a clock fired.
+async function generateTasksIfNeeded(userId) {
+  const existing = repo.listTasks(userId);
+  const hasEligible = existing.some((t) => t.status === "LOCKED" || t.status === "AVAILABLE" || t.status === "IN_PROGRESS" || t.status === "AWAITING_EVIDENCE");
+  if (hasEligible) return;
+
+  const context = buildStartupContext(userId);
+  await determineNextAction(userId, context);
 }
 
 // §9 — when there isn't enough founder info to responsibly synthesize
@@ -282,11 +386,16 @@ function createInfoGatheringTask(userId, assessment) {
   // clarifyingQuestion/mostImportantMissingField.
   const missingFields = (assessment.missingCriticalFields && assessment.missingCriticalFields.length ? assessment.missingCriticalFields : assessment.missingSecondaryFields) || assessment.missingInfo || [];
   const missing = missingFields.join(", ") || "the basics of what you're building";
+  const whyNow = `FounderOS doesn't yet know enough to responsibly point you at a real next step — specifically ${missing}. Guessing here would mean sending you after the wrong thing.`;
   const task = repo.createTask({
     userId,
     title: "Tell FounderOS what you're building",
     objective: "Give enough detail for FounderOS to identify your actual highest-priority next action, instead of generic advice.",
-    whyItMatters: `FounderOS doesn't yet know enough to responsibly point you at a real next step — specifically ${missing}. Guessing here would mean sending you after the wrong thing.`,
+    whyItMatters: whyNow,
+    reason: `Missing critical information: ${missing}.`,
+    whyNow,
+    expectedOutcome: "Enough real context to ground the next task in this startup's actual situation instead of a generic checklist.",
+    contextReferences: missingFields,
     dependencies: [],
     steps: [
       {
@@ -314,11 +423,18 @@ function createFallbackTask(userId, state) {
   const title = needsValidation
     ? `Talk to 5 people about: ${state.problem || "the problem you're solving"}`
     : `Decide the next concrete step toward: ${state.goal || "your current goal"}`;
+  const whyNow = state.currentBottleneck
+    ? `This is the most grounded next step available given the current bottleneck: ${state.currentBottleneck}.`
+    : "This is the most grounded next step available from what's currently known about your startup.";
   const task = repo.createTask({
     userId,
     title,
     objective: needsValidation ? "Find out if this problem is real and worth solving for these people." : "Turn your current goal into one concrete, executable action.",
-    whyItMatters: "This is the most grounded next step available from what's currently known about your startup.",
+    whyItMatters: whyNow,
+    reason: whyNow,
+    whyNow,
+    expectedOutcome: needsValidation ? "A clearer read on whether this problem is real and worth solving for these people." : "One concrete action taken toward the current goal.",
+    contextReferences: state.currentBottleneck ? [state.currentBottleneck] : [],
     dependencies: [],
     steps: [{ title: "Get started", instructions: needsValidation ? "Talk to 5 people who might have this problem and ask how they deal with it today." : "Write down the single most concrete thing you could do this week toward this goal, then do it." }],
     completionCriteria: "A concrete action taken with real evidence of what happened.",
@@ -357,7 +473,7 @@ async function ensureCurrentTask(userId, profile, recentMessages = []) {
       state = repo.saveFounderState(userId, mergeStateWithChangeLog(state, synthesized), { ready: true });
     }
 
-    await generateTasksIfNeeded(userId, state);
+    await generateTasksIfNeeded(userId);
     const generated = selectCurrentTask(userId);
     return { task: generated || createFallbackTask(userId, state), bootstrapped: true };
   });
@@ -375,7 +491,8 @@ function describeTaskReveal(task) {
   const firstStep = task.steps?.[0];
   const titleSentence = /[.!?]$/.test(task.title.trim()) ? task.title.trim() : `${task.title.trim()}.`;
   let msg = `${opener} ${titleSentence}`;
-  if (task.whyItMatters) msg += ` ${task.whyItMatters}`;
+  const why = task.whyNow || task.whyItMatters;
+  if (why) msg += ` ${why}`;
   if (firstStep?.instructions) msg += `\n\n${firstStep.instructions}`;
   return msg;
 }
@@ -503,6 +620,25 @@ async function verifyEvidence(userId, task, currentStep, evidenceText, { source 
   // place in the entire codebase that sets a task to COMPLETED.
   const completed = repo.setStatus(task.id, userId, "COMPLETED", { completed: true });
 
+  // §6/§7/§13 of the context-aware-task-generation spec — capture the
+  // structured outcome now, from THIS task's own evidence, so the next
+  // determineNextAction call has real discoveries/implications to build a
+  // causal chain on instead of just a completed title. Independent of the
+  // founder-state resynthesis below, which is about the startup's overall
+  // picture — this is specifically about what this one task found.
+  try {
+    const evidenceForThisTask = (completed.evidenceSubmitted || []).map((e) => ({ text: e.text }));
+    const outcome = await aiService.synthesizeTaskOutcome(userId, { task: completed, evidenceLog: evidenceForThisTask, verificationNotes: verification.notes });
+    if (outcome && !outcome.error) repo.recordOutcome(task.id, userId, outcome);
+  } catch (e) {
+    // Same principle as the state-resynthesis catch below — never block a
+    // real completion the founder is waiting on, but don't let the
+    // failure vanish silently either. Falls back to verificationNotes
+    // wherever outcome would have been used (see buildStartupContext).
+    // eslint-disable-next-line no-console
+    console.error(`[executionEngine] task-outcome synthesis failed for task ${task.id}, user ${userId}:`, e.message);
+  }
+
   // Reprioritize now, with the new evidence in hand, rather than working
   // down a list decided before this evidence existed (§12).
   let freshState;
@@ -582,11 +718,16 @@ async function handleStuck(userId, task, currentStep, founderMessage, founderSta
   const diagnosis = await aiService.diagnoseStuck(userId, { task, currentStep, founderMessage, founderState });
 
   if (diagnosis.needsPrerequisiteTask && diagnosis.prerequisiteTask) {
+    const prereqWhyNow = `Unblocks "${task.title}" — ${diagnosis.diagnosis === "other" ? "the founder got stuck on it" : `the founder got stuck (${diagnosis.diagnosis})`}.`;
     const prereq = repo.createTask({
       userId,
       title: diagnosis.prerequisiteTask.title,
       objective: diagnosis.prerequisiteTask.objective,
-      whyItMatters: `Unblocks "${task.title}"`,
+      whyItMatters: prereqWhyNow,
+      reason: prereqWhyNow,
+      whyNow: prereqWhyNow,
+      expectedOutcome: `Unblocks "${task.title}" so it can be completed.`,
+      contextReferences: [`stuck on "${task.title}": ${diagnosis.diagnosis}`],
       dependencies: [],
       steps: diagnosis.prerequisiteTask.steps || [],
       completionCriteria: diagnosis.prerequisiteTask.completionCriteria,
@@ -638,4 +779,4 @@ async function getProgressSummary(userId, profile) {
   };
 }
 
-module.exports = { handleMessage, selectCurrentTask, ensureCurrentTask, getProgressSummary, priorityScore, verifyEvidence };
+module.exports = { handleMessage, selectCurrentTask, ensureCurrentTask, getProgressSummary, priorityScore, verifyEvidence, buildStartupContext, determineNextAction };
