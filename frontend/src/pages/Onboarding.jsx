@@ -246,7 +246,7 @@ export function Onboarding({ onDone }) {
           flex-direction: column;
           align-items: center;
           background:
-            radial-gradient(circle at 50% 30%, rgba(110,72,230,.11), transparent 30%),
+            radial-gradient(circle at 50% 30%, rgba(227,165,72,.10), transparent 30%),
             ${C.bg};
           color: ${C.text};
           font-family: ${F.body};
@@ -279,9 +279,9 @@ export function Onboarding({ onDone }) {
         }
 
         .ob-logo-star {
-          color: #f0b34a;
+          color: ${C.accent};
           font-size: 20px;
-          filter: drop-shadow(0 0 9px rgba(240,179,74,.35));
+          filter: drop-shadow(0 0 9px rgba(227,165,72,.35));
         }
 
         .ob-skip {
@@ -304,7 +304,7 @@ export function Onboarding({ onDone }) {
         }
 
         .ob-eyebrow {
-          color: #f0b34a;
+          color: ${C.accent};
           font-family: ${F.mono};
           font-size: 8px;
           letter-spacing: 2.5px;
@@ -322,14 +322,14 @@ export function Onboarding({ onDone }) {
           width: min(310px, 72vw);
           aspect-ratio: .56;
           max-height: 49vh;
-          border: 1px solid rgba(126,105,218,.38);
+          border: 1px solid rgba(79,176,165,.35);
           border-radius: 27px;
           background:
-            radial-gradient(circle at 50% 28%, rgba(111,71,230,.10), transparent 30%),
-            linear-gradient(145deg, rgba(18,19,36,.98), rgba(9,11,22,.98));
+            radial-gradient(circle at 50% 28%, rgba(227,165,72,.08), transparent 30%),
+            linear-gradient(145deg, rgba(30,37,48,.98), rgba(14,17,22,.98));
           box-shadow:
             0 24px 70px rgba(0,0,0,.38),
-            0 0 45px rgba(104,71,230,.08);
+            0 0 45px rgba(227,165,72,.08);
           padding: 12px;
           display: flex;
           flex-direction: column;
@@ -340,7 +340,7 @@ export function Onboarding({ onDone }) {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          color: #77768d;
+          color: ${C.muted};
           font-size: 8px;
           flex: 0 0 auto;
         }
@@ -360,9 +360,9 @@ export function Onboarding({ onDone }) {
           width: 100%;
           height: 126px;
           flex: 0 0 126px;
-          border: 1px solid rgba(126,105,218,.22);
+          border: 1px solid rgba(79,176,165,.20);
           border-radius: 15px;
-          background: rgba(8,10,21,.62);
+          background: rgba(14,17,22,.62);
           overflow: hidden;
           position: relative;
         }
@@ -371,8 +371,8 @@ export function Onboarding({ onDone }) {
           display: grid;
           place-items: center;
           background:
-            radial-gradient(circle at 50% 50%, rgba(126,78,255,.20), transparent 44%),
-            rgba(8,10,21,.62);
+            radial-gradient(circle at 50% 50%, rgba(227,165,72,.16), transparent 44%),
+            rgba(14,17,22,.62);
         }
 
         .ob-welcome-glow {
@@ -380,15 +380,15 @@ export function Onboarding({ onDone }) {
           width: 90px;
           height: 90px;
           border-radius: 50%;
-          background: rgba(126,78,255,.18);
+          background: rgba(227,165,72,.16);
           filter: blur(24px);
         }
 
         .ob-welcome-star {
           position: relative;
-          color: #f0b34a;
+          color: ${C.accent};
           font-size: 44px;
-          filter: drop-shadow(0 0 13px rgba(240,179,74,.35));
+          filter: drop-shadow(0 0 13px rgba(227,165,72,.35));
         }
 
         .ob-visual-validate {
@@ -404,17 +404,17 @@ export function Onboarding({ onDone }) {
           gap: 7px;
           align-items: center;
           min-height: 25%;
-          border-bottom: 1px solid rgba(126,105,218,.09);
-          color: #c8c4d9;
+          border-bottom: 1px solid rgba(139,147,161,.14);
+          color: ${C.text};
           font-size: 9px;
         }
 
         .ob-signal-row svg:first-child {
-          color: #a99aff;
+          color: ${C.accent};
         }
 
         .ob-signal-row svg:last-child {
-          color: #36ca87;
+          color: ${C.accent2};
         }
 
         .ob-visual-decide {
@@ -425,14 +425,14 @@ export function Onboarding({ onDone }) {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          color: #d7d3e7;
+          color: ${C.text};
           font-size: 10px;
           font-family: ${F.mono};
           margin-bottom: 17px;
         }
 
         .ob-decision-head svg {
-          color: #a99aff;
+          color: ${C.accent};
         }
 
         .ob-decision-row {
@@ -441,12 +441,12 @@ export function Onboarding({ onDone }) {
           align-items: center;
           gap: 7px;
           margin-top: 11px;
-          color: #85839e;
+          color: ${C.muted};
           font-size: 8px;
         }
 
         .ob-decision-row b {
-          color: #d0cbdf;
+          color: ${C.text};
           text-align: right;
           font-weight: 500;
         }
@@ -455,40 +455,40 @@ export function Onboarding({ onDone }) {
           height: 7px;
           border-radius: 999px;
           overflow: hidden;
-          background: rgba(116,108,156,.22);
+          background: rgba(139,147,161,.22);
         }
 
         .ob-progress i {
           display: block;
           height: 100%;
           border-radius: inherit;
-          background: #42c98b;
+          background: ${C.accent2};
         }
 
         .ob-decision-row:last-child .ob-progress i {
-          background: #f0b34a;
+          background: ${C.accent};
         }
 
         .ob-visual-measure {
           padding: 14px;
-          color: #43c98b;
+          color: ${C.accent2};
         }
 
         .ob-metric-label {
-          color: #85839e;
+          color: ${C.muted};
           font-family: ${F.mono};
           font-size: 8px;
         }
 
         .ob-metric-value {
-          color: #eeeaf7;
+          color: ${C.text};
           font-size: 24px;
           font-weight: 600;
           margin-top: 2px;
         }
 
         .ob-metric-change {
-          color: #43c98b;
+          color: ${C.accent2};
           font-size: 9px;
           margin-top: 2px;
         }
@@ -506,13 +506,13 @@ export function Onboarding({ onDone }) {
           display: grid;
           place-items: center;
           background:
-            radial-gradient(circle, rgba(126,78,255,.16), transparent 48%),
-            rgba(8,10,21,.62);
+            radial-gradient(circle, rgba(227,165,72,.14), transparent 48%),
+            rgba(14,17,22,.62);
         }
 
         .ob-ready-orbit {
           position: absolute;
-          border: 1px solid rgba(126,78,255,.24);
+          border: 1px solid rgba(227,165,72,.22);
           border-radius: 50%;
         }
 
@@ -524,7 +524,7 @@ export function Onboarding({ onDone }) {
         .orbit-b {
           width: 43%;
           aspect-ratio: 1;
-          border-color: rgba(240,179,74,.20);
+          border-color: rgba(79,176,165,.22);
         }
 
         .ob-ready-center {
@@ -533,18 +533,18 @@ export function Onboarding({ onDone }) {
           width: 100px;
           height: 100px;
           border-radius: 18px;
-          border: 1px solid rgba(126,78,255,.55);
-          background: rgba(17,17,37,.94);
+          border: 1px solid rgba(227,165,72,.5);
+          background: rgba(22,27,34,.94);
           display: flex;
           flex-direction: column;
           justify-content: center;
           align-items: center;
           gap: 7px;
-          box-shadow: 0 0 30px rgba(126,78,255,.12);
+          box-shadow: 0 0 30px rgba(227,165,72,.12);
         }
 
         .ob-ready-center > span {
-          color: #f0b34a;
+          color: ${C.accent};
           font-size: 20px;
         }
 
@@ -554,7 +554,7 @@ export function Onboarding({ onDone }) {
         }
 
         .ob-ready-center strong span {
-          color: #f0b34a;
+          color: ${C.accent};
         }
 
         .ob-slide-title {
@@ -566,7 +566,7 @@ export function Onboarding({ onDone }) {
         }
 
         .ob-slide-title span {
-          color: #a88cff;
+          color: ${C.accent2};
         }
 
         .ob-slide-description {
@@ -602,15 +602,15 @@ export function Onboarding({ onDone }) {
           padding: 0;
           border: 0;
           border-radius: 50%;
-          background: #2b2940;
+          background: ${C.border};
           cursor: pointer;
         }
 
         .ob-dot.active {
           width: 8px;
           height: 8px;
-          background: #9c7bff;
-          box-shadow: 0 0 10px rgba(156,123,255,.4);
+          background: ${C.accent};
+          box-shadow: 0 0 10px rgba(227,165,72,.4);
         }
 
         .ob-next {
@@ -619,8 +619,8 @@ export function Onboarding({ onDone }) {
           height: 44px;
           border: 0;
           border-radius: 12px;
-          background: linear-gradient(100deg, #7448ff, #5134df);
-          color: white;
+          background: ${C.accent};
+          color: #1A1400;
           display: flex;
           justify-content: center;
           align-items: center;
@@ -628,7 +628,7 @@ export function Onboarding({ onDone }) {
           font-family: ${F.display};
           font-size: 12px;
           font-weight: 650;
-          box-shadow: 0 12px 30px rgba(108,68,240,.20);
+          box-shadow: 0 12px 30px rgba(227,165,72,.25);
           cursor: pointer;
         }
 
@@ -651,11 +651,11 @@ export function Onboarding({ onDone }) {
           width: 13px;
           height: 13px;
           margin: 0;
-          accent-color: #7448ff;
+          accent-color: ${C.accent};
         }
 
         .ob-agree a {
-          color: #f0b34a;
+          color: ${C.accent};
           text-decoration: underline;
         }
 
@@ -801,7 +801,7 @@ export function Onboarding({ onDone }) {
           <div className="ob-logo">
             <span className="ob-logo-star">✦</span>
             <span>
-              Founder<span style={{ color: "#f0b34a" }}>OS</span>
+              Founder<span style={{ color: C.accent }}>OS</span>
             </span>
           </div>
 
