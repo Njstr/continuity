@@ -56,6 +56,94 @@ function clamp01(n) {
   return Math.max(0, Math.min(1, v));
 }
 
+// ---- Founder/startup state change tracking (§4/§8 — revisit eligibility) ----
+// The same flat fields synthesizeFounderState outputs (aiService.js). This
+// is the list a task's own revisitConditions is allowed to name, and the
+// list mergeStateWithChangeLog watches for real value changes on.
+const TRACKED_STATE_FIELDS = [
+  "founderName", "founderRole", "founderExperience", "founderSkills", "founderGoals",
+  "startupName", "goal", "stage", "problem", "targetCustomer", "currentSolution",
+  "businessModel", "traction", "revenue", "competitors", "fundingStatus",
+];
+
+// Folds a per-field "when did this last actually change" map into the
+// founder_state blob itself (under changeLog.fieldUpdatedAt) rather than
+// standing up a separate history table — the whole state is already one
+// JSON blob per founder, and this is just one more fact about it. This is
+// the "documented reason" §4 asks for: not "time passed" but "this
+// specific field's value is different than it was when the task
+// completed," checked deterministically in isDuplicateOfCompleted below.
+function mergeStateWithChangeLog(priorState, newState) {
+  const now = new Date().toISOString();
+  const priorFieldUpdatedAt = (priorState && priorState.changeLog && priorState.changeLog.fieldUpdatedAt) || {};
+  const fieldUpdatedAt = { ...priorFieldUpdatedAt };
+  if (priorState) {
+    for (const field of TRACKED_STATE_FIELDS) {
+      const before = JSON.stringify(priorState[field] ?? null);
+      const after = JSON.stringify(newState[field] ?? null);
+      if (before !== after && after !== "null") {
+        fieldUpdatedAt[field] = now;
+      }
+    }
+  }
+  return { ...newState, changeLog: { fieldUpdatedAt } };
+}
+
+// ---- Duplicate-objective detection (§3/§4/§6 Rule 3/Rule 4) ----
+// Deterministic, backend-enforced — never relies solely on the model
+// honoring "don't repeat yourself" in a prompt.
+function slugify(s) {
+  return String(s || "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+function titleOverlap(a, b) {
+  const wordsA = new Set(slugify(a).split("_").filter(Boolean));
+  const wordsB = new Set(slugify(b).split("_").filter(Boolean));
+  if (wordsA.size === 0 || wordsB.size === 0) return 0;
+  let shared = 0;
+  wordsA.forEach((w) => {
+    if (wordsB.has(w)) shared += 1;
+  });
+  return shared / Math.min(wordsA.size, wordsB.size);
+}
+
+// A candidate proposed task is "substantially equivalent" to a completed
+// one when they share a normalized objectiveKey, OR (fallback, for tasks
+// created before objectiveKey existed / model wording drift) the same
+// category plus heavily overlapping title wording. It only counts as a
+// genuine duplicate — one the backend rejects outright — when NONE of the
+// matched task's own revisitConditions fields have actually changed since
+// it completed, per founderState's changeLog. "A significant amount of
+// time has passed" is deliberately NOT on its own a revisit trigger here;
+// the spec's own example of that is judgment the AI can raise via
+// whyItMatters on a future call, but the hard backend gate only reacts to
+// documented field changes it can check in plain code.
+function isDuplicateOfCompleted(candidate, completedTasks, founderState) {
+  const candidateKey = slugify(candidate.objectiveKey || candidate.title);
+  const fieldUpdatedAt = (founderState && founderState.changeLog && founderState.changeLog.fieldUpdatedAt) || {};
+
+  const match = completedTasks.find((t) => {
+    const completedKey = slugify(t.objectiveKey || t.title);
+    if (candidateKey && completedKey && candidateKey === completedKey) return true;
+    if (candidate.category && t.category && candidate.category === t.category && titleOverlap(candidate.title, t.title) >= 0.6) return true;
+    return false;
+  });
+
+  if (!match) return { duplicate: false };
+
+  const revisitFields = match.revisitConditions || [];
+  const revisitJustified = revisitFields.some((field) => {
+    const changedAt = fieldUpdatedAt[field];
+    return !!changedAt && !!match.completedAt && changedAt > match.completedAt;
+  });
+
+  return { duplicate: !revisitJustified, matchedTask: match, revisitJustified };
+}
+
 // Recomputes priority for every non-completed task and returns the
 // highest-scoring one that's actually unblocked (all dependencies
 // COMPLETED). This — not "whatever the AI generated first" — is what
@@ -98,23 +186,52 @@ function selectCurrentTask(userId) {
   return repo.getTask(winner.id, userId);
 }
 
+// §6 Rule 2 (unchanged, verified): `hasEligible` below is the actual
+// backend enforcement of "never generate a new task while a pending task
+// exists" — this function is only ever reached via ensureCurrentTask,
+// which itself only calls this after selectCurrentTask already came back
+// empty. There is no code path from a chat message or a progress-summary
+// request to the AI task generator that skips this check.
 async function generateTasksIfNeeded(userId, founderState) {
   const existing = repo.listTasks(userId);
   const hasEligible = existing.some((t) => t.status === "LOCKED" || t.status === "AVAILABLE" || t.status === "IN_PROGRESS" || t.status === "AWAITING_EVIDENCE");
   if (hasEligible) return;
 
   const completedTasks = existing.filter((t) => t.status === "COMPLETED");
-  const proposal = await aiService.proposeNextTasks(userId, {
-    founderState,
-    completedTasks,
-    activeTaskTitles: existing.map((t) => t.title),
-  });
 
-  // Two passes: create every proposed task first (LOCKED by default so
+  // §6 Rule 3/Rule 4 — the model is instructed not to repeat completed
+  // work, but that instruction alone is not trusted: every proposed task
+  // is checked against completed objectives in plain code before it's
+  // ever written to the DB. One retry (excluding whatever just got
+  // rejected) gives the model a real chance to propose something
+  // genuinely different rather than silently falling through to the
+  // generic fallback task on the first collision.
+  async function proposeAndFilter(excludedObjectiveKeys) {
+    const proposal = await aiService.proposeNextTasks(userId, {
+      founderState,
+      completedTasks,
+      activeTaskTitles: existing.map((t) => t.title),
+      excludedObjectiveKeys,
+    });
+    const rejectedKeys = [];
+    const accepted = (proposal.tasks || []).filter((t) => {
+      const { duplicate } = isDuplicateOfCompleted(t, completedTasks, founderState);
+      if (duplicate) rejectedKeys.push(slugify(t.objectiveKey || t.title));
+      return !duplicate;
+    });
+    return { accepted, rejectedKeys };
+  }
+
+  let { accepted, rejectedKeys } = await proposeAndFilter([]);
+  if (accepted.length === 0 && rejectedKeys.length > 0) {
+    ({ accepted } = await proposeAndFilter(rejectedKeys));
+  }
+
+  // Two passes: create every accepted task first (LOCKED by default so
   // dependency titles can resolve to real ids), then resolve
   // dependsOnTitle -> actual task id/title for the dependency check in
   // selectCurrentTask.
-  const created = (proposal.tasks || []).map((t) =>
+  const created = accepted.map((t) =>
     repo.createTask({
       userId,
       title: t.title,
@@ -128,10 +245,13 @@ async function generateTasksIfNeeded(userId, founderState) {
       priorityFactors: t.priorityFactors,
       priorityScore: priorityScore(t.priorityFactors),
       status: "LOCKED",
+      category: t.category || null,
+      objectiveKey: slugify(t.objectiveKey || t.title) || null,
+      revisitConditions: t.revisitConditions || [],
     })
   );
 
-  proposal.tasks.forEach((t, i) => {
+  accepted.forEach((t, i) => {
     if (t.dependsOnTitle) {
       const depTask =
         created.find((c) => c.title === t.dependsOnTitle) ||
@@ -155,7 +275,13 @@ async function generateTasksIfNeeded(userId, founderState) {
 // threshold since there's no "execution" to prove here, only a genuine
 // description.
 function createInfoGatheringTask(userId, assessment) {
-  const missing = (assessment.missingInfo || []).join(", ") || "the basics of what you're building";
+  // §1 — prioritize CRITICAL gaps (what actually blocks a meaningful
+  // task) over SECONDARY ones (useful, but not blocking) when describing
+  // why this gate exists; assessFounderReadiness (aiService.js) already
+  // did the prioritization of WHICH single question to ask via
+  // clarifyingQuestion/mostImportantMissingField.
+  const missingFields = (assessment.missingCriticalFields && assessment.missingCriticalFields.length ? assessment.missingCriticalFields : assessment.missingSecondaryFields) || assessment.missingInfo || [];
+  const missing = missingFields.join(", ") || "the basics of what you're building";
   const task = repo.createTask({
     userId,
     title: "Tell FounderOS what you're building",
@@ -228,7 +354,7 @@ async function ensureCurrentTask(userId, profile, recentMessages = []) {
         return { task: createInfoGatheringTask(userId, assessment), bootstrapped: true };
       }
       const synthesized = await aiService.synthesizeFounderState(userId, { profile, recentMessages, priorState: state });
-      state = repo.saveFounderState(userId, synthesized, { ready: true });
+      state = repo.saveFounderState(userId, mergeStateWithChangeLog(state, synthesized), { ready: true });
     }
 
     await generateTasksIfNeeded(userId, state);
@@ -381,12 +507,17 @@ async function verifyEvidence(userId, task, currentStep, evidenceText, { source 
   // down a list decided before this evidence existed (§12).
   let freshState;
   try {
+    const priorState = repo.getFounderState(userId);
     freshState = await aiService.synthesizeFounderState(userId, {
       profile: null,
       recentMessages: [{ role: "user", content: evidenceText }],
-      priorState: repo.getFounderState(userId),
+      priorState,
     });
-    if (freshState && !freshState.error) repo.saveFounderState(userId, freshState, { ready: true });
+    // §4/§8 — this is exactly the moment a completed task's underlying
+    // assumptions (targetCustomer, problem, etc.) might have just shifted
+    // based on what the founder reported as evidence, so the change log
+    // gets updated right here, not just on the readiness-gate path.
+    if (freshState && !freshState.error) repo.saveFounderState(userId, mergeStateWithChangeLog(priorState, freshState), { ready: true });
   } catch (e) {
     // Resynthesis failing shouldn't block a genuine completion the
     // founder is waiting on — but it must not vanish silently either
