@@ -10,6 +10,7 @@ const MIGRATIONS = [
   require("./migrations/007_execution_engine"),
   require("./migrations/008_activity_evidence"),
   require("./migrations/009_task_dedup_fields"),
+  require("./migrations/010_task_context_fields"),
 ];
 
 function ensureMigrationsTable() {
@@ -35,6 +36,25 @@ function runMigrations() {
   const applied = appliedIds();
   const pending = MIGRATIONS.filter((m) => !applied.has(m.id));
 
+  if (pending.length === 0) {
+    console.log("[db] schema up to date, no migrations to run");
+    return;
+  }
+
+  for (const migration of pending) {
+    const run = db.transaction(() => {
+      migration.up(db);
+      db.prepare("INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)").run(
+        migration.id,
+        new Date().toISOString()
+      );
+    });
+    run();
+    console.log(`[db] applied migration: ${migration.id}`);
+  }
+}
+
+module.exports = { runMigrations };
   if (pending.length === 0) {
     console.log("[db] schema up to date, no migrations to run");
     return;
