@@ -9,6 +9,7 @@ const MIGRATIONS = [
   require("./migrations/006_decision_lifecycle"),
   require("./migrations/007_execution_engine"),
   require("./migrations/008_activity_evidence"),
+  require("./migrations/009_task_dedup_fields"),
 ];
 
 function ensureMigrationsTable() {
