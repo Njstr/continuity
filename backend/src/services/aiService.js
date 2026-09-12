@@ -230,7 +230,7 @@ async function chat(userId, { profile, missions, feedback, history, patterns, re
         .join("\n")}`
     : "";
   const learnedPatternsBlock = learnedPatterns?.length
-    ? `\nPATTERNS LEARNED SPECIFICALLY ABOUT THIS FOUNDER (apply these — e.g. if their forecasts in a category consistently run high, adjust accordingly and say so):\n${learnedPatterns.map((p) => `- ${p.patternText}`).join("\n")}`
+    ? `\nPATTERNS LEARNED SPECIFICALLY ABOUT THIS FOUNDER (apply these — e.g. if their forecasts in a category consistently run high, adjust accordingly and say so): ${learnedPatterns.map((p) => `- ${p.patternText}`).join("\n")}`
     : "";
 
   // ---- Uploaded document context ----
@@ -638,23 +638,46 @@ Only set shouldRecord true if the evidence genuinely supports a reusable pattern
 // state and a real first task, or are we still in the "understand the
 // founder" conversation? Keeps FounderOS from generating generic tasks
 // off of two sentences.
-async function assessFounderReadiness(userId, { profile, recentMessages }) {
-  const system = `You are gatekeeping FounderOS's task engine. Before it can generate real, specific execution tasks for a founder, it needs to actually understand their situation — not just their one-line pitch from onboarding.
+// The founder/startup information gate (§1 of the information-gate spec).
+// Deliberately split into CRITICAL fields (block task generation until
+// known — the minimum needed for a task to be grounded in something real
+// rather than generic advice) and SECONDARY fields (genuinely useful, but
+// don't hold the founder hostage for them — see the module-level doc
+// comment above generateTasksIfNeeded's readiness gate in
+// executionEngine.js for why this split exists and how it's used).
+const CRITICAL_READINESS_FIELDS = ["founderName", "startupName", "problem", "targetCustomer", "stage"];
+const SECONDARY_READINESS_FIELDS = [
+  "founderRole", "founderExperience", "founderSkills", "founderGoals",
+  "currentSolution", "businessModel", "traction", "revenue", "competitors", "fundingStatus",
+];
 
-Given the founder's profile and the conversation so far, decide if there's enough to work with. You need at least a rough sense of: what they're building, who it's for, what's already been done (if anything), and what evidence (if any) already exists that the problem/solution is real.
+async function assessFounderReadiness(userId, { profile, recentMessages }) {
+  const system = `You are gatekeeping FounderOS's task engine. Before it can generate real, specific execution tasks for a founder, it needs to actually understand who they are and what they're building — not just their one-line pitch from onboarding.
+
+Founderos tracks these fields about the founder and startup over time:
+- Founder: name, role, experience, skills, goals
+- Startup: name, idea/problem being solved, target customer, current solution, business model, stage, traction, revenue, competitors, funding status
+
+Given the founder's profile and the conversation so far, decide what's known and what's still missing. Two tiers matter differently:
+- CRITICAL (must know before generating a task at all): ${CRITICAL_READINESS_FIELDS.join(", ")} — a task grounded in "nobody knows who this is for or what problem it solves" would just be generic advice, which defeats the point.
+- SECONDARY (useful for prioritization, but should NOT block task generation): ${SECONDARY_READINESS_FIELDS.join(", ")}.
+
+Do NOT ask for everything at once — identify only the SINGLE most important missing piece of information and ask about that one thing, conversationally, as the next question. Prefer a missing CRITICAL field over a missing SECONDARY one. If nothing is missing, there's nothing to ask.
 
 Output ONLY JSON:
 {
-  "ready": true|false,
-  "missingInfo": ["short labels for what's still unclear, e.g. 'target customer', 'what's already been tried'"] (empty if ready),
-  "clarifyingQuestion": "If not ready: ONE natural, specific, non-generic question to ask next — never a form-feeling checklist. If ready: null."
+  "ready": true|false — true once every CRITICAL field is known, even if some SECONDARY fields are still missing,
+  "missingCriticalFields": ["field names from the CRITICAL list that are still unknown"] (empty if ready),
+  "missingSecondaryFields": ["field names from the SECONDARY list that are still unknown"] (can be non-empty even when ready:true),
+  "mostImportantMissingField": "the single field name (critical if any are missing, otherwise the most useful secondary one) that the next question should target, or null if literally nothing is missing",
+  "clarifyingQuestion": "If not ready: ONE natural, specific, non-generic question targeting mostImportantMissingField — never a form-feeling checklist. If ready: null."
 }
-Don't require exhaustive detail — a founder with a clear one-paragraph picture of their situation is enough. Err toward "ready" once you have a genuine, non-vague sense of the above, rather than interrogating them for its own sake.`;
+Don't require exhaustive detail — a clear, concrete answer covering a field is enough, even if brief. Err toward "ready" once every CRITICAL field has a genuine, non-vague answer, rather than interrogating the founder for its own sake. Never re-ask about something already answered in profile or recentMessages, even if the answer was brief.`;
   const userMsg = JSON.stringify({ profile, recentMessages: (recentMessages || []).slice(-12) });
   return callAI(system, [{ role: "user", content: userMsg }], {
     json: true,
-    shape: { requiredKeys: ["ready"] },
-    maxTokens: 400,
+    shape: { requiredKeys: ["ready", "missingCriticalFields"] },
+    maxTokens: 500,
   });
 }
 
@@ -666,29 +689,45 @@ async function synthesizeFounderState(userId, { profile, recentMessages, priorSt
   const system = withMemoryContext(
     userId,
     "founder execution state synthesis",
-    `You are building a structured operating picture of a founder's startup for FounderOS's execution engine. Synthesize what's actually known — don't invent specifics that weren't said.
+    `You are building a structured operating picture of a founder and their startup for FounderOS's execution engine. Synthesize what's actually known — don't invent specifics that weren't said.
+
+priorState (if given) is the last known picture. Merge, don't discard: if a field already has a value in priorState and nothing in recentMessages updates or contradicts it, KEEP the prior value rather than nulling it out — this snapshot should only ever get more complete over time, never regress because a field wasn't mentioned again in the latest messages.
 
 Output ONLY JSON:
 {
-  "goal": "what they're ultimately trying to achieve, in their own terms",
+  "founderName": "the founder's name, or null if unknown",
+  "founderRole": "their role, e.g. 'solo founder', 'technical co-founder', or null",
+  "founderExperience": "relevant background/experience, as far as known, or null",
+  "founderSkills": ["short list of skills they've mentioned having — empty array if none known"],
+  "founderGoals": "what the founder personally wants out of this, in their own terms, or null",
+
+  "startupName": "the startup's name, or null if unknown",
+  "goal": "what the startup is ultimately trying to achieve right now, in their own terms",
   "stage": "idea"|"validating"|"building"|"launched"|"early_traction"|"revenue"|"growth",
   "problem": "the problem being solved, as understood so far — can be 'not yet validated' framing if that's the truth",
   "targetCustomer": "who this is for, as specifically as currently known",
   "currentSolution": "what exists today, if anything — 'nothing built yet' is a valid, honest value",
+  "businessModel": "how the startup makes or intends to make money, or null if not yet decided/known",
+  "traction": "concrete signs of traction so far (users, usage, interest), or null if none yet",
+  "revenue": "revenue status as described by the founder (can be 'none yet'), or null if not discussed",
+  "competitors": ["short list of named competitors/alternatives the founder is aware of — empty array if none mentioned"],
+  "fundingStatus": "funding situation as described (e.g. 'bootstrapped', 'raising a pre-seed', 'not seeking funding'), or null if not discussed",
+
   "validationLevel": "none"|"anecdotal"|"some_evidence"|"strong_evidence",
   "evidenceCollected": ["short list of concrete evidence that actually exists, e.g. '3 customer interviews', 'landing page with 40 signups' — empty array if none"],
   "resources": "time/money/skills available, as far as known — can be brief",
   "constraints": ["short list of real constraints, e.g. 'solo, part-time', 'no dev background'"],
   "majorAssumptions": ["1-4 things currently being assumed true that haven't been tested"],
-  "knownRisks": ["1-4 short risk statements"]
+  "knownRisks": ["1-4 short risk statements"],
+  "currentBottleneck": "one sentence — the single biggest thing actually blocking this startup's progress right now, grounded in the state above (e.g. 'hasn't talked to a single real customer yet', 'has demand but no way to charge for it')"
 }
-This is a snapshot of reality, not a wishlist — reflect genuine current state, including gaps and unknowns, honestly.`
+This is a snapshot of reality, not a wishlist — reflect genuine current state, including gaps and unknowns, honestly. Use null (not empty strings, not guesses) for anything genuinely not yet known.`
   );
   const userMsg = JSON.stringify({ profile, recentMessages: (recentMessages || []).slice(-16), priorState: priorState || undefined });
   return callAI(system, [{ role: "user", content: userMsg }], {
     json: true,
     shape: { requiredKeys: ["goal", "stage", "problem", "validationLevel"] },
-    maxTokens: 700,
+    maxTokens: 900,
   });
 }
 
@@ -698,17 +737,29 @@ This is a snapshot of reality, not a wishlist — reflect genuine current state,
 // only ever sees one anyway, and generating fresh after each completion
 // is what makes real reprioritization (§12) actually happen instead of
 // just working down a list decided on day one.
-async function proposeNextTasks(userId, { founderState, completedTasks, activeTaskTitles }) {
+// Fixed, small category set — used both to give the model a stable
+// vocabulary and, more importantly, as one half of the backend's own
+// deterministic duplicate check in executionEngine.isDuplicateOfCompleted
+// (same category + matching/near-matching objectiveKey = substantially
+// equivalent). Kept intentionally coarse; this is a lookup key, not a
+// taxonomy to get precise.
+const TASK_CATEGORIES = ["customer_validation", "product_development", "marketing", "sales", "fundraising", "operations", "hiring", "metrics", "other"];
+
+async function proposeNextTasks(userId, { founderState, completedTasks, activeTaskTitles, excludedObjectiveKeys }) {
   const system = withMemoryContext(
     userId,
     "execution task generation",
-    `You are FounderOS's execution planner. Given a founder's current state and what they've already completed (with evidence — these are verified, real accomplishments, not just discussed topics), propose 1-3 concrete next tasks.
+    `You are the task planner for FounderOS. Your job is to determine the single most valuable next action for this startup — you may propose up to 3 candidates, but each one must independently be a genuinely defensible "most valuable next action," not padding.
 
-Hard rules:
-- NEVER propose a task the founder has effectively already done based on their state (e.g. don't propose "validate the problem" if evidenceCollected already shows real customer interviews with a confirmed problem).
-- Do NOT assume a fixed idea→validation→MVP→marketing→revenue roadmap. Read the actual stage and evidence. A founder with revenue needs a different next task than a founder with just an idea.
-- Every task must have an objective, verifiable completion condition — never something vague like "work on X".
-- If a task genuinely depends on another not-yet-completed task (including one of the ones you're proposing now), say so via dependsOnTitle — don't propose building something before its validating assumption is tested.
+Rules:
+1. Never propose a task that duplicates critical information already captured in founderState — that gate is handled elsewhere, before you're ever called.
+2. Review completedTasks (real, verified accomplishments — not just discussed topics) before proposing anything.
+3. Do NOT repeat a previous task, or a task substantially equivalent to one already completed, unless founderState shows a clear reason the previous result is no longer sufficient (e.g. targetCustomer, problem, currentSolution, businessModel, or stage has materially changed since that task's completedAt — check completedTasks' completedAt against founderState). If you do revisit one, say so explicitly in whyItMatters (what changed and why the old result no longer holds).
+4. If excludedObjectiveKeys is non-empty, those specific objectives were just rejected by the backend as duplicates of completed work with no justified reason to revisit — do not propose them again this round; find a genuinely different next action instead.
+5. Prioritize the startup's currentBottleneck (given in founderState) over generic startup-stage playbooks. Do NOT assume a fixed idea→validation→MVP→marketing→revenue roadmap — read the actual stage and evidence. A founder with revenue needs a different next task than a founder with just an idea.
+6. Every task must have a clear, verifiable objective — never something vague like "work on X".
+7. Explain why each task is appropriate now (whyItMatters), grounded in THIS founder's specific situation, not generic advice.
+8. If a task genuinely depends on another not-yet-completed task (including one of the ones you're proposing now), say so via dependsOnTitle — don't propose building something before its validating assumption is tested.
 
 Output ONLY JSON:
 {
@@ -716,12 +767,15 @@ Output ONLY JSON:
     {
       "title": "short, specific, e.g. 'Interview 5 potential customers about the problem'",
       "objective": "1 sentence — what this task is actually for",
+      "objectiveKey": "a short, stable, lower_snake_case identifier for the underlying goal, independent of wording — e.g. 'validate_customer_problem', 'ship_landing_page', 'run_paid_ad_test'. Two tasks with the same underlying goal MUST get the same objectiveKey even if you'd phrase the title differently.",
+      "category": one of ${JSON.stringify(TASK_CATEGORIES)},
       "whyItMatters": "1-2 sentences grounded in THIS founder's specific situation, not generic startup advice",
       "dependsOnTitle": "exact title of a task (existing completed/active, or one you're also proposing) this requires first, or null if nothing blocks it",
       "steps": [ { "title": "short step name", "instructions": "concrete, specific instructions for this one step — what to actually do, who to talk to, what to say, what NOT to do (e.g. don't pitch yet)" } ] (2-5 steps, each independently actionable),
       "completionCriteria": "the objective condition that must be true for this task to count as done",
       "evidenceRequirements": "what kind of evidence would actually prove this was done — be specific about what's acceptable (e.g. 'interview notes or a screenshot of the conversation, showing what the person actually said, not just that contact happened') and what's NOT enough (e.g. a bare claim of 'I did it')",
       "requiredThreshold": number between 0.4 and 0.9 — how strong the evidence needs to be before this counts as verified. Higher for higher-risk/higher-stakes tasks (e.g. committing money, publicly launching), lower for low-stakes exploratory tasks.,
+      "revisitConditions": ["founderState field names — from: founderName, founderRole, founderExperience, founderSkills, founderGoals, startupName, goal, stage, problem, targetCustomer, currentSolution, businessModel, traction, revenue, competitors, fundingStatus — that, if they change AFTER this task completes, would genuinely justify redoing it. E.g. a customer-interview task's result stops being valid if targetCustomer or problem changes. Empty array only if truly nothing about this task's validity depends on any tracked field changing."],
       "priorityFactors": {
         "impact": number 0-1 — how much this moves the founder toward their goal,
         "urgency": number 0-1 — how time-sensitive this is right now,
@@ -735,13 +789,14 @@ Output ONLY JSON:
   );
   const userMsg = JSON.stringify({
     founderState,
-    completedTasks: (completedTasks || []).map((t) => ({ title: t.title, evidenceSummary: t.verificationNotes, completedAt: t.completedAt })),
+    completedTasks: (completedTasks || []).map((t) => ({ title: t.title, objective: t.objective, objectiveKey: t.objectiveKey, category: t.category, evidenceSummary: t.verificationNotes, completedAt: t.completedAt })),
     currentlyActiveOrAvailable: activeTaskTitles || [],
+    excludedObjectiveKeys: excludedObjectiveKeys || [],
   });
   return callAI(system, [{ role: "user", content: userMsg }], {
     json: true,
     shape: { requiredKeys: ["tasks"] },
-    maxTokens: 1200,
+    maxTokens: 1400,
   });
 }
 
@@ -915,6 +970,9 @@ module.exports = {
   assessFounderReadiness,
   synthesizeFounderState,
   proposeNextTasks,
+  TASK_CATEGORIES,
+  CRITICAL_READINESS_FIELDS,
+  SECONDARY_READINESS_FIELDS,
   classifyExecutionMessage,
   verifyTaskEvidence,
   diagnoseStuck,
