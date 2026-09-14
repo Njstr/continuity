@@ -88,4 +88,15 @@ function validate() {
 
 if (isProduction) validate();
 
+// This was the actual root cause of "SearXNG isn't working" (see
+// webResearchService.js's module comment for the full story): a missing
+// SEARXNG_URL fails every search silently via aiTools.js's
+// SEARXNG_NOT_CONFIGURED handling, and nothing previously surfaced that
+// anywhere visible — the app just quietly never did live research. This
+// warning, plus the new GET /execution/research-health diagnostic route,
+// replace "silently broken" with "visibly and checkably not configured."
+if (!config.searxngUrl) {
+  console.warn("[config] SEARXNG_URL is not set — live web research is unavailable until it is. See GET /api/execution/research-health.");
+}
+
 module.exports = config;
