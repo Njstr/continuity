@@ -671,6 +671,29 @@ function describeTaskReveal(task) {
 // is known, the first real task is generated and its reveal is chained
 // into the same reply — the same pattern already used when a task
 // completes and the next one reveals in the same message.
+
+// §1 of the first-time-experience spec — the fixed, reviewed opening
+// message for a genuinely brand-new founder (see ensureOnboardingPrompt
+// below for exactly when this is used vs. an AI-generated follow-up).
+// Deliberately NOT run through the AI: this is the single highest-stakes
+// line FounderOS ever shows someone, and a canned, warm message
+// guarantees the "your intelligent co-founder just sat down beside you"
+// tone every single time, with zero risk of an off-tone generation on a
+// cold start. Asks exactly one open, non-presumptuous question and
+// explicitly invites a messy/half-formed answer — never a questionnaire,
+// never an assumption about what the founder is building, never a task.
+const WELCOME_MESSAGE = `Welcome to FounderOS 👋
+
+This is your space to think, build, experiment, and turn ideas into reality — with an AI partner alongside you.
+
+You don't need to have everything figured out before we start. We can talk through an idea, make sense of where things stand, explore possibilities, plan something, or eventually turn an idea into real work.
+
+For now, I just want to get to know you and what you're building.
+
+What are you working on right now?
+
+Tell me about it however you want — even if it's messy, half-formed, or you're not sure where it's going yet. We'll figure it out together.`;
+
 async function handleOnboardingMessage(userId, { profile, text, recentHistory }) {
   return withFounderLock(userId, async () => {
     const priorState = repo.getFounderState(userId);
@@ -708,13 +731,32 @@ async function handleOnboardingMessage(userId, { profile, text, recentHistory })
 // founder message to extract anything from, so this never spends an AI
 // call on a plain app-open/refresh once a prompt has already been asked
 // — it just replays the stored onboardingPrompt. Only calls the model for
-// the very first-ever turn (no prior state, no prior prompt at all).
+// a returning-but-not-ready founder; a genuinely first-ever contact (no
+// founder_state row exists at all) gets the fixed WELCOME_MESSAGE below
+// instead of an AI-generated first line — see its own comment for why.
 async function ensureOnboardingPrompt(userId, profile, state) {
   if (state?.onboardingPrompt) return { prompt: state.onboardingPrompt };
   return withFounderLock(userId, async () => {
     const latest = repo.getFounderState(userId);
     if (latest?.ready) return { prompt: null };
     if (latest?.onboardingPrompt) return { prompt: latest.onboardingPrompt };
+
+    // Genuinely first-ever contact — no founder_state row exists yet at
+    // all, meaning nothing has ever been asked or answered. This is the
+    // single most important impression FounderOS makes ("your
+    // intelligent co-founder just sat down beside you," not "your
+    // productivity manager has arrived with today's assignments" — see
+    // the first-time-experience spec), so it's a fixed, reviewed message
+    // rather than an AI-generated one: guarantees the right tone every
+    // time instead of leaving a founder's very first line to per-call
+    // model variance. It asks exactly one open question and explicitly
+    // invites a messy, half-formed answer — never a questionnaire, never
+    // an assumption about what they're building.
+    if (!latest) {
+      repo.saveFounderState(userId, { onboardingPrompt: WELCOME_MESSAGE }, { ready: false });
+      return { prompt: WELCOME_MESSAGE };
+    }
+
     const turn = await aiService.synthesizeOnboardingTurn(userId, { profile, priorState: latest, recentMessages: [] });
     const { ready, reply, ...stateFields } = turn;
     const merged = mergeStateWithChangeLog(latest, stateFields);
