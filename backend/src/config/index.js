@@ -46,7 +46,7 @@ const config = {
   // tool (see services/searxngService.js). URL is deliberately
   // server-side only: it's never sent to the browser, only used by the
   // backend to make the actual search request.
-  searxngUrl: req("SEARXNG_URL", ""),
+  searxngUrl: req("SEARXNG_URL", "https://founderos-searxng.onrender.com"),
   searxngTimeoutMs: parseInt(req("SEARXNG_TIMEOUT_MS", "8000"), 10),
   searxngMaxResults: parseInt(req("SEARXNG_MAX_RESULTS", "10"), 10),
 
