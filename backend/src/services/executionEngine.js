@@ -347,7 +347,18 @@ async function determineNextAction(userId, context) {
   const autonomousExecutions = [];
   const failedAutonomous = [];
 
-  for (const t of accepted) {
+  // ---- Latency fix (real production incident: /api/execution/message
+  // timing out at the 30s request-timeout, per actual access logs) ----
+  // Up to 3 candidates can come back from a single proposeNextTasks call,
+  // and each one that needs research used to run its full pipeline (2 AI
+  // calls + real web fetches) one at a time, awaited sequentially inside
+  // a for-loop — turning "one candidate's research latency" into "up to
+  // 3x that" for no reason, since the candidates' research is completely
+  // independent of each other. Phase 1 below kicks off every candidate's
+  // research CONCURRENTLY (Promise.allSettled) instead; phase 2 is then
+  // pure synchronous bookkeeping over whatever came back — no further
+  // awaits in the per-candidate loop.
+  const normalizedCandidates = accepted.map((t) => {
     let actionType = VALID_ACTION_TYPES.has(t.actionType) ? t.actionType : "FOUNDER_REQUIRED";
     // §45 — no tool that can actually execute an approval-required
     // external action exists anywhere in this codebase yet (no email
@@ -355,80 +366,95 @@ async function determineNextAction(userId, context) {
     // to FOUNDER_REQUIRED rather than parking the founder on a
     // WAITING_FOR_APPROVAL state nothing will ever move out of.
     if (actionType === "APPROVAL_REQUIRED") actionType = "FOUNDER_REQUIRED";
+    return { t, actionType, needsResearch: !!(t.needsResearch && t.researchTopic) };
+  });
+
+  // Phase 1 — fire every needed research pass at once, wait for all of
+  // them together (each with its own honest success/failure, never
+  // blocking on the others).
+  const researchOutcomes = await Promise.allSettled(
+    normalizedCandidates.map((c) => (c.needsResearch ? runResearch(userId, c.t.researchTopic, context.founderState) : Promise.resolve(null)))
+  );
+
+  // Phase 2 — no more awaits here; just turn each candidate + its
+  // already-settled research outcome into a real Task row.
+  normalizedCandidates.forEach((c, i) => {
+    const { t, actionType, needsResearch } = c;
+    const outcome = researchOutcomes[i];
+    const result = outcome.status === "fulfilled" ? outcome.value : null;
+    const researchFailed = needsResearch && outcome.status === "rejected";
+    const researchError = researchFailed ? outcome.reason : null;
 
     if (actionType === "AUTONOMOUS") {
-      if (!t.needsResearch || !t.researchTopic) continue; // nothing genuinely autonomous proposed here — skip rather than fabricate a result
-      try {
-        const result = await runResearch(userId, t.researchTopic, context.founderState);
-        const created = repo.createTask({
-          userId,
-          title: t.title,
-          objective: t.objective,
-          whyItMatters: result.conclusion,
-          dependencies: [],
-          steps: t.steps || [],
-          completionCriteria: t.completionCriteria,
-          evidenceRequirements: t.evidenceRequirements,
-          requiredThreshold: t.requiredThreshold,
-          priorityFactors: t.priorityFactors,
-          priorityScore: priorityScore(t.priorityFactors),
-          status: "AVAILABLE", // transitioned to COMPLETED just below via setStatus so completed_at is set correctly
-          category: t.category || null,
-          objectiveKey: slugify(t.objectiveKey || t.title) || null,
-          revisitConditions: t.revisitConditions || [],
-          reason: t.reason || null,
-          whyNow: t.whyNow || null,
-          expectedOutcome: t.expectedOutcome || null,
-          contextReferences: t.contextReferences || [],
-          actionType: "AUTONOMOUS",
-          autonomousWork: [],
-          executionState: "COMPLETED",
-        });
-        // Autonomous work is never shown to the founder as a pending
-        // "task" at all (§1/§5) — it's created already resolved, purely
-        // so it participates in the same duplicate/revisit machinery
-        // every other task does (see migration 011's comment).
-        const finalized = repo.setStatus(created.id, userId, "COMPLETED", { completed: true });
-        repo.recordOutcome(created.id, userId, {
-          summary: result.conclusion,
-          discoveries: result.facts || [],
-          decisions: [],
-          implications: result.inferences || [],
-        });
-        createdTasks.push(finalized);
-        autonomousExecutions.push(result);
-      } catch (e) {
+      if (!needsResearch) return; // nothing genuinely autonomous proposed here — skip rather than fabricate a result
+      if (researchFailed) {
         // §17/§18 — never mark research completed on a genuine failure.
         // Nothing is persisted for this candidate; the objective stays
         // open for a future pass to retry.
-        failedAutonomous.push({ topic: t.researchTopic, reason: e.code || e.message });
+        failedAutonomous.push({ topic: t.researchTopic, reason: researchError?.code || researchError?.message });
         // eslint-disable-next-line no-console
-        console.error(`[executionEngine] autonomous research failed for user ${userId}, topic "${t.researchTopic}":`, e.message);
+        console.error(`[executionEngine] autonomous research failed for user ${userId}, topic "${t.researchTopic}":`, researchError?.message);
+        return;
       }
-      continue;
+      const created = repo.createTask({
+        userId,
+        title: t.title,
+        objective: t.objective,
+        whyItMatters: result.conclusion,
+        dependencies: [],
+        steps: t.steps || [],
+        completionCriteria: t.completionCriteria,
+        evidenceRequirements: t.evidenceRequirements,
+        requiredThreshold: t.requiredThreshold,
+        priorityFactors: t.priorityFactors,
+        priorityScore: priorityScore(t.priorityFactors),
+        status: "AVAILABLE", // transitioned to COMPLETED just below via setStatus so completed_at is set correctly
+        category: t.category || null,
+        objectiveKey: slugify(t.objectiveKey || t.title) || null,
+        revisitConditions: t.revisitConditions || [],
+        reason: t.reason || null,
+        whyNow: t.whyNow || null,
+        expectedOutcome: t.expectedOutcome || null,
+        contextReferences: t.contextReferences || [],
+        actionType: "AUTONOMOUS",
+        autonomousWork: [],
+        executionState: "COMPLETED",
+      });
+      // Autonomous work is never shown to the founder as a pending
+      // "task" at all (§1/§5) — it's created already resolved, purely
+      // so it participates in the same duplicate/revisit machinery
+      // every other task does (see migration 011's comment).
+      const finalized = repo.setStatus(created.id, userId, "COMPLETED", { completed: true });
+      repo.recordOutcome(created.id, userId, {
+        summary: result.conclusion,
+        discoveries: result.facts || [],
+        decisions: [],
+        implications: result.inferences || [],
+      });
+      createdTasks.push(finalized);
+      autonomousExecutions.push(result);
+      return;
     }
 
     // FOUNDER_REQUIRED (including any APPROVAL_REQUIRED downgraded above)
-    // — §4C/§20: do everything genuinely possible before delegating. If
-    // the model flagged useful research prep, actually run it (not just
-    // assert it happened) and fold the real findings into the task.
+    // — §4C/§20: do everything genuinely possible before delegating. The
+    // research (if any was requested) already ran in phase 1 above; here
+    // we just fold whatever came back into the task, honestly, one way
+    // or the other.
     let autonomousWork = [];
     let whyNow = t.whyNow;
-    if (t.needsResearch && t.researchTopic) {
-      try {
-        const result = await runResearch(userId, t.researchTopic, context.founderState);
+    if (needsResearch) {
+      if (researchFailed) {
+        // §28 — honest about a failed prep attempt, never silently
+        // dropped and never presented as if the prep succeeded.
+        failedAutonomous.push({ topic: t.researchTopic, reason: researchError?.code || researchError?.message });
+        autonomousWork = [`Tried to research this first, but live web research is unavailable right now (${researchError?.code || "error"}) — proceeding without that prep.`];
+      } else {
         autonomousExecutions.push(result);
-        autonomousWork = (result.facts || [])
-          .slice(0, 3)
-          .map((f) => `Researched and found: ${f}`);
+        autonomousWork = (result.facts || []).slice(0, 3).map((f) => `Researched and found: ${f}`);
         if (result.recommendation) autonomousWork.push(`Identified: ${result.recommendation}`);
         if (!autonomousWork.length) autonomousWork = [`Researched "${result.topic}" (${(result.sources || []).length} sources) to prepare this.`];
         whyNow = [t.whyNow, result.conclusion].filter(Boolean).join(" ");
-      } catch (e) {
-        // §28 — honest about a failed prep attempt, never silently
-        // dropped and never presented as if the prep succeeded.
-        failedAutonomous.push({ topic: t.researchTopic, reason: e.code || e.message });
-        autonomousWork = [`Tried to research this first, but live web research is unavailable right now (${e.code || "error"}) — proceeding without that prep.`];
       }
     }
 
@@ -457,7 +483,7 @@ async function determineNextAction(userId, context) {
       executionState: "WAITING_FOR_FOUNDER",
     });
     createdTasks.push(created);
-  }
+  });
 
   // Resolve dependsOnTitle now that every candidate (autonomous or
   // founder-required) has a real row — matched by title rather than
@@ -498,12 +524,21 @@ async function determineNextAction(userId, context) {
 // §15 — the execution loop: after one round, if everything created was
 // autonomous and already resolved, loop again to see whether the NEXT
 // action is now determinable, rather than stopping just because the
-// first thing was handled. Bounded by MAX_AUTONOMOUS_LOOP_ROUNDS — there
-// is no background job system in this codebase, so the whole loop must
-// finish inside this one request/response cycle; §16's "don't
-// over-automate blindly" is the other half of why this is capped rather
-// than unbounded.
-const MAX_AUTONOMOUS_LOOP_ROUNDS = 3;
+// first thing was handled. Bounded two ways — MAX_AUTONOMOUS_LOOP_ROUNDS
+// as a hard ceiling, and AUTONOMOUS_LOOP_BUDGET_MS as the real-world
+// guard: there is no background job system in this codebase, so the
+// whole loop must finish inside this one request/response cycle, and a
+// fixed round count alone doesn't actually bound wall-clock time — a
+// single slow AI-provider call already has up to ~90s of its own retry
+// budget (see utils/retry.js), so 2-3 rounds of that can genuinely
+// exceed a 30s request timeout, which is exactly what happened in
+// production (POST /api/execution/message timing out at 30000ms per
+// real access logs). The time budget is checked BETWEEN rounds — a round
+// already in flight is never aborted mid-way, since that would risk
+// leaving a research pass half-done; this just stops STARTING new rounds
+// once there's no real headroom left before the request's own timeout.
+const MAX_AUTONOMOUS_LOOP_ROUNDS = 2;
+const AUTONOMOUS_LOOP_BUDGET_MS = 18000; // leaves real headroom under the 30s default REQUEST_TIMEOUT_MS for the final round's own AI calls to complete
 
 async function generateTasksIfNeeded(userId) {
   const existing = repo.listTasks(userId);
@@ -512,7 +547,13 @@ async function generateTasksIfNeeded(userId) {
 
   const autonomousExecutions = [];
   const failedAutonomous = [];
+  const startedAt = Date.now();
   for (let round = 0; round < MAX_AUTONOMOUS_LOOP_ROUNDS; round++) {
+    if (round > 0 && Date.now() - startedAt > AUTONOMOUS_LOOP_BUDGET_MS) {
+      // eslint-disable-next-line no-console
+      console.warn(`[executionEngine] stopping autonomous loop early for user ${userId} after ${Date.now() - startedAt}ms (time budget) — round ${round + 1} of ${MAX_AUTONOMOUS_LOOP_ROUNDS} skipped`);
+      break;
+    }
     const context = buildStartupContext(userId);
     const result = await determineNextAction(userId, context);
     autonomousExecutions.push(...result.autonomousExecutions);
