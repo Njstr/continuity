@@ -12,6 +12,7 @@ const MIGRATIONS = [
   require("./migrations/009_task_dedup_fields"),
   require("./migrations/010_task_context_fields"),
   require("./migrations/011_action_execution"),
+  require("./migrations/012_permissions"),
 ];
 
 function ensureMigrationsTable() {
