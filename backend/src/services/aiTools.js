@@ -46,16 +46,46 @@ function formatResultsForModel(query, results) {
   return `Results for "${query}":\n\n${lines.join("\n\n")}`;
 }
 
+// Per-error-code friendly text, used two ways: appended with the
+// "answer from what you know" hedge for the AGENTIC tool-calling loop
+// (the model reads this and decides what to say), and used bare — no
+// hedge, no invitation to fall back into conversation — for the
+// deterministic explicit-action path in executionEngine.js, where the
+// whole point is that a founder who explicitly asked FounderOS to search
+// gets a clean, short, terminal failure message, never a pivot back into
+// chatting.
+const ERROR_MESSAGES = {
+  SEARXNG_NOT_CONFIGURED: "Web search is not set up on this server right now.",
+  SEARXNG_TIMEOUT: "The search timed out.",
+  SEARXNG_UNREACHABLE: "The web search service could not be reached.",
+  SEARXNG_RATE_LIMITED: "Web search is rate-limited right now.",
+  SEARXNG_MALFORMED_RESPONSE: "The web search service returned an unreadable response.",
+  INVALID_QUERY: "That search query wasn't valid.",
+};
+const DEFAULT_ERROR_MESSAGE = "Web search is temporarily unavailable.";
+
 /**
- * Executes a tool call by name. Returns { textForModel, sources } per the
- * AIProvider tool-calling contract — `sources` accumulate into the
- * response's `citations`, which is how the founder-facing Sources list
- * (§7/§8) gets built from something the AI can never invent: only real
- * URLs a real search actually returned.
+ * Executes a tool call by name. Returns { textForModel, sources,
+ * success, errorCode, resultCount, errorMessage }.
+ *
+ * textForModel/sources are the original, unchanged AIProvider
+ * tool-calling contract — `sources` accumulate into the response's
+ * `citations`, which is how the founder-facing Sources list gets built
+ * from something the AI can never invent: only real URLs a real search
+ * actually returned.
+ *
+ * success/errorCode/resultCount/errorMessage are additive fields (safe —
+ * both AIProvider implementations only ever destructure textForModel/
+ * sources, see providers/AnthropicProvider.js and
+ * providers/openAiCompatibleTools.js) added for the DETERMINISTIC
+ * explicit-action path in executionEngine.js, which needs to reliably
+ * tell apart SUCCESS-with-results, SUCCESS-with-zero-results, and a
+ * genuine ERROR — a distinction the plain textForModel string alone
+ * can't safely be parsed back out of.
  */
 async function executeTool(name, args) {
   if (name !== "web_search") {
-    return { textForModel: `Unknown tool: ${name}`, sources: [] };
+    return { textForModel: `Unknown tool: ${name}`, sources: [], success: false, errorCode: "UNKNOWN_TOOL", resultCount: 0, errorMessage: "That tool isn't available." };
   }
 
   try {
@@ -71,23 +101,26 @@ async function executeTool(name, args) {
     return {
       textForModel: formatResultsForModel(args.query, results),
       sources: results.map((r) => ({ url: r.url, title: r.title })),
+      success: true,
+      errorCode: null,
+      resultCount: results.length,
+      errorMessage: null,
     };
   } catch (e) {
-    // Handled gracefully per §10 — the model gets a plain-language reason
-    // it can pass along to the founder, never a raw error/stack, and the
-    // turn doesn't crash just because search failed.
-    const friendly =
-      {
-        SEARXNG_NOT_CONFIGURED: "Web search is not set up on this server right now.",
-        SEARXNG_TIMEOUT: "The web search timed out.",
-        SEARXNG_UNREACHABLE: "The web search service could not be reached.",
-        SEARXNG_RATE_LIMITED: "Web search is rate-limited right now.",
-        SEARXNG_MALFORMED_RESPONSE: "The web search service returned an unreadable response.",
-        INVALID_QUERY: "That search query wasn't valid.",
-      }[e.code] || "Web search is temporarily unavailable.";
+    // Handled gracefully — the model gets a plain-language reason it can
+    // pass along to the founder, never a raw error/stack, and the turn
+    // doesn't crash just because search failed.
+    const friendly = ERROR_MESSAGES[e.code] || DEFAULT_ERROR_MESSAGE;
     // eslint-disable-next-line no-console
     console.error(`[aiTools] web_search failed (${e.code || "unknown"}):`, e.message);
-    return { textForModel: `${friendly} Answer from what you already know if possible, and let the founder know live search wasn't available.`, sources: [] };
+    return {
+      textForModel: `${friendly} Answer from what you already know if possible, and let the founder know live search wasn't available.`,
+      sources: [],
+      success: false,
+      errorCode: e.code || "UNKNOWN_ERROR",
+      resultCount: 0,
+      errorMessage: friendly,
+    };
   }
 }
 
