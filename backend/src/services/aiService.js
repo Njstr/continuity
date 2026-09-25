@@ -1076,6 +1076,67 @@ Write one natural, direct, conversational reply to the founder's question, groun
   return callAI(system, [{ role: "user", content: founderMessage }], { maxTokens: 400 });
 }
 
+// Explicit-action-priority fix — narrow, single-purpose, FAST classifier
+// (small prompt, low maxTokens, only the last few turns of history — NOT
+// full memory/state) whose only job is telling apart a genuine explicit
+// search/action command ("Search reddit", "Find Reddit posts about X",
+// "Research competitors") from ordinary conversation that merely mentions
+// a similar topic ("I have a problem with lead generation", "Why do
+// startups struggle with customer acquisition?"). Only called at all when
+// executionEngine's cheap keyword pre-filter already fired, to keep this
+// AI call off the hot path for ordinary messages.
+async function detectExplicitActionRequest(userId, { text, recentHistory, startupContext }) {
+  const system = `You are a narrow intent classifier for FounderOS. Decide whether the founder's latest message is an EXPLICIT, direct request for FounderOS to go search/research something right now — not a mention of a topic, not a description of a problem, not a general statement.
+
+Examples that ARE explicit search requests: "Search reddit", "Search reddit for people with lead generation problems", "Find Reddit posts about X", "Research our competitors", "Look up what people say about Y", "Investigate the market for Z".
+Examples that are NOT explicit search requests (normal conversation, even on a similar topic): "I have a problem with lead generation", "I'm thinking about lead generation", "Why do startups struggle with customer acquisition?". These must get isExplicitSearch: false even though they share vocabulary with the trigger examples above — the founder is talking, not commanding a search.
+
+${startupContext ? `Startup context (use ONLY to sharpen the query if the request is genuinely explicit — never to decide whether it's explicit):\n${JSON.stringify(startupContext)}` : ""}
+
+Output ONLY JSON:
+{
+  "isExplicitSearch": true|false,
+  "source": "reddit"|"twitter"|"linkedin"|"web"|null — the platform named or clearly implied; "web" if it's explicit but no specific platform is named; null if isExplicitSearch is false,
+  "query": "a good, specific, ready-to-execute search query capturing what the founder actually asked for, or null if isExplicitSearch is false. Do not include a site: qualifier — the platform is applied separately from 'source'."
+}
+isExplicitSearch can be true even with zero startup context — the search request itself is sufficient; never require context to classify something as explicit.`;
+  const history = (recentHistory || []).slice(-6).map((m) => ({ role: m.role, content: m.content }));
+  return callAI(system, [...history, { role: "user", content: text }], {
+    json: true,
+    shape: { requiredKeys: ["isExplicitSearch"] },
+    maxTokens: 250,
+  });
+}
+
+// Explicit-action-priority fix — ONLY ever called when there are real
+// results to analyze (toolResult.success && resultCount > 0). No-results
+// and error cases are handled with fixed, deterministic template strings
+// directly in executionEngine.js instead, specifically to guarantee exact
+// wording and eliminate any risk of the model drifting back into
+// conversational hedging on the failure path — the single most
+// safety-critical part of this fix. This function's only job is the
+// success case: a grounded, pattern-based summary of what was actually
+// found, with an explicit fact/pattern framing and never a fabricated
+// post/username/quote/stat that isn't actually in the given results.
+async function draftSearchAnswer(userId, { query, source, sources, textForModel, startupContext }) {
+  const system = `You are FounderOS, reporting back real web search results the founder explicitly asked you to go get. Write one natural, direct reply summarizing what you actually found — recurring patterns, themes, or notable individual finds — grounded ONLY in the results given below. Never invent a post, username, quote, or statistic that isn't genuinely present in them.
+
+Search performed: "${query}"${source && source !== "web" ? ` (scoped to ${source})` : ""}
+
+Results:
+${textForModel}
+
+${startupContext ? `Startup context, for relevance only (don't force a connection that isn't there):\n${JSON.stringify(startupContext)}` : ""}
+
+Rules:
+- Ground everything in the results above — if they're thin or only loosely relevant, say so honestly rather than overstating them.
+- Frame this as patterns from what you found, not a representative survey of the whole platform.
+- Don't include raw URLs in the reply text itself (they're shown separately as sources) — refer to them naturally in prose (e.g. "a few threads suggest...").
+- End by naturally offering to dig deeper or run a narrower follow-up search if that would help.
+- Keep it concise and conversational — a real update, not a report.`;
+  return completeAIReply(system, [{ role: "user", content: query }], { maxTokens: 500 });
+}
+
 // The safety-critical verification call (§7-§11, §25). Proposes a score
 // and specific notes. executionEngine.js is the only thing that decides
 // whether that score is enough to actually advance state — this function
@@ -1210,6 +1271,8 @@ module.exports = {
   diagnoseStuck,
   matchActivityToTask,
   answerFromSearchResults,
+  detectExplicitActionRequest,
+  draftSearchAnswer,
   providerName: provider.name,
   providerSupportsTools: provider.supportsTools,
 };
