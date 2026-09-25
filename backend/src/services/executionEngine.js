@@ -807,15 +807,141 @@ async function ensureOnboardingPrompt(userId, profile, state) {
   });
 }
 
+// ---- Explicit-action-priority fix ----
+// Bug: an explicit, direct action request ("Search reddit", "Search
+// reddit for people with lead generation problems") was being swallowed
+// by whichever conversational flow happened to own the turn — the
+// onboarding flow (zero tool awareness at all) or, mid-task, the
+// discretionary needsSearch field on classifyExecutionMessage (built for
+// "does answering this question need a search", not "the founder just
+// gave a direct command"). The founder ends up asked "what's your name?"
+// or a Socratic follow-up instead of getting an actual search run.
+//
+// Fix: an explicit-request check runs as the absolute first thing
+// handleMessage does, before either the onboarding branch or the
+// mid-task classifier ever sees the message — so it uniformly overrides
+// both paths from exactly one place. It is a pure "side quest": it never
+// touches founder_state or any Task row (no lock needed), and once it's
+// done (whether it found something or not), the founder's NEXT ordinary
+// message resumes onboarding/task flow completely unaffected.
+//
+// A cheap keyword pre-filter gates a narrow AI classifier call
+// (aiService.detectExplicitActionRequest) so ordinary conversational
+// messages never pay for an extra AI round-trip — directly informed by
+// the earlier performance-regression fix in this same file (see
+// AUTONOMOUS_LOOP_BUDGET_MS below). Deliberately over-inclusive (a
+// mention of "reddit" alone is enough to pass the gate) since a false
+// positive here only costs one small, cheap classifier call, while a
+// false negative would silently skip the fix entirely — the classifier
+// itself, not the gate, is what actually distinguishes a command from a
+// mention (validated by hand against the spec's own non-trigger cases:
+// "I have a problem with lead generation", "I'm thinking about lead
+// generation", "Why do startups struggle with customer acquisition?" —
+// none of these contain an action-verb trigger word, so they never even
+// reach the AI classifier below).
+const EXPLICIT_ACTION_KEYWORD_PATTERN = /\b(search|look\s*up|look\s*for|research|investigate|discover|find|reddit|twitter|linkedin)\b/i;
+
+// Applied DETERMINISTICALLY IN CODE based on the classifier's `source`
+// field, rather than trusting the model to remember to embed a site:
+// qualifier itself inside the query string it returns — leaving
+// correctness solely to model discretion is exactly the class of bug
+// this whole fix exists to eliminate. Twitter/X: both domains are
+// included since the platform's own rebrand means real content and
+// real users are split across both — narrowing to just one risks
+// silently missing results on the other.
+const PLATFORM_QUERY_PREFIX = {
+  reddit: "site:reddit.com",
+  twitter: "(site:x.com OR site:twitter.com)",
+  linkedin: "site:linkedin.com",
+};
+const PLATFORM_LABEL = { reddit: "Reddit", twitter: "X/Twitter", linkedin: "LinkedIn", web: "the web" };
+
+// Fixed, deterministic (non-AI) reply strings for the no-results and
+// error cases — an explicit design decision, not an oversight: this
+// guarantees exact, spec-compliant wording and eliminates any risk of
+// the model drifting back into conversational hedging ("would you like
+// me to try a different search?" turning into something that reads like
+// a normal chat question) on the single highest-stakes part of this fix
+// — a failed/empty search must never fall back into the ordinary
+// questioning/conversation flow. Only the success-with-results case gets
+// an AI-drafted answer (aiService.draftSearchAnswer).
+function noResultsReply(platformLabel) {
+  return `I couldn't find relevant ${platformLabel} discussions for that search.`;
+}
+function errorReply(toolResult, platformLabel) {
+  if (toolResult.errorCode === "SEARXNG_TIMEOUT") return "The search timed out. Please try again.";
+  if (toolResult.errorCode === "SEARXNG_NOT_CONFIGURED") return "Web search isn't set up on this server right now.";
+  return `I couldn't search ${platformLabel} right now. Please try again.`;
+}
+
+// Returns null if the message isn't an explicit search/action request
+// (the caller then falls through to normal onboarding/task handling,
+// completely unaffected). Returns a full handleMessage-shaped result
+// ({ event, reply, task: null, ... }) if it is.
+async function handleExplicitSearchRequest(userId, { text, recentHistory }) {
+  if (!text || !EXPLICIT_ACTION_KEYWORD_PATTERN.test(text)) return null;
+
+  let startupContext = null;
+  try {
+    const state = repo.getFounderState(userId);
+    if (state?.ready) {
+      startupContext = { startupName: state.startupName, problem: state.problem, targetCustomer: state.targetCustomer, currentBottleneck: state.currentBottleneck };
+    }
+  } catch (e) {
+    startupContext = null; // Missing context is never a reason to block this path.
+  }
+
+  const detection = await aiService.detectExplicitActionRequest(userId, { text, recentHistory, startupContext });
+  if (!detection?.isExplicitSearch || !detection.query) return null;
+
+  const source = ["reddit", "twitter", "linkedin", "web"].includes(detection.source) ? detection.source : "web";
+  const platformLabel = PLATFORM_LABEL[source] || "the web";
+  const prefix = PLATFORM_QUERY_PREFIX[source];
+  const finalQuery = prefix ? `${prefix} ${detection.query}` : detection.query;
+
+  const toolResult = await aiTools.executeTool("web_search", { query: finalQuery });
+
+  let reply;
+  if (toolResult.success && toolResult.resultCount > 0) {
+    reply = await aiService.draftSearchAnswer(userId, {
+      query: detection.query,
+      source,
+      sources: toolResult.sources,
+      textForModel: toolResult.textForModel,
+      startupContext,
+    });
+  } else if (toolResult.success) {
+    reply = noResultsReply(platformLabel);
+  } else {
+    // Reuse the clean, hedge-free errorMessage field — NOT textForModel,
+    // which still carries the agentic "answer from what you know" hedge
+    // meant for the conversational tool-calling loop, not this
+    // deterministic path.
+    reply = errorReply(toolResult, platformLabel);
+  }
+
+  return { event: "search_result", reply, task: null, currentStep: null, sources: toolResult.sources || [] };
+}
+
 // The single entry point the chat route calls for every message once the
 // founder has an active execution context. Returns { reply, task, event }
 // — event is one of: onboarding | task_started | in_progress | insufficient
-// | completed | stuck. `reply` is always the natural-language text
-// actually shown in the conversation — it is only ever generated from a
-// real, checked state transition, never copied verbatim from a model
-// call that merely claimed one. There is no separate task UI to keep in
-// sync with this — the message list IS the task interface (see Chat.jsx).
+// | completed | stuck | search_result. `reply` is always the
+// natural-language text actually shown in the conversation — it is only
+// ever generated from a real, checked state transition, never copied
+// verbatim from a model call that merely claimed one. There is no
+// separate task UI to keep in sync with this — the message list IS the
+// task interface (see Chat.jsx).
 async function handleMessage(userId, { profile, text, recentHistory }) {
+  // Explicit-action-priority fix: checked before EVERYTHING else,
+  // including the onboarding branch below — a founder who explicitly
+  // says "search reddit" gets a real search run regardless of what phase
+  // they're in, instead of being asked an onboarding/task question. Pure
+  // side quest: returns null (falls through, unaffected) for any
+  // ordinary conversational message.
+  const explicitSearchResult = await handleExplicitSearchRequest(userId, { text, recentHistory });
+  if (explicitSearchResult) return explicitSearchResult;
+
   // Founder_state not ready yet -> this is still the onboarding
   // conversation, not a task. Routed here BEFORE ensureCurrentTask so no
   // Task row is ever created/consulted for this phase — see
@@ -1134,5 +1260,6 @@ module.exports = {
   buildStartupContext,
   determineNextAction,
   handleOnboardingMessage,
+  handleExplicitSearchRequest,
   runResearch,
 };
