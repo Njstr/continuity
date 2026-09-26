@@ -107,8 +107,8 @@ router.get(
     const decisions = decisionRepo.listDecisions(req.userId, { limit: 100 });
     const enriched = decisions.map((d) => ({
       ...d,
-      prediction: decisionRepo.getPredictionByDecision(d.id),
-      outcome: decisionRepo.getOutcomeByDecision(d.id),
+      prediction: decisionRepo.getPredictionByDecision(d.id, req.userId),
+      outcome: decisionRepo.getOutcomeByDecision(d.id, req.userId),
     }));
     res.json({ decisions: enriched });
   })
@@ -136,9 +136,9 @@ router.post(
     }
     const decision = decisionRepo.getDecision(req.params.id, req.userId);
     if (!decision) return res.status(404).json({ error: true, message: "Decision not found." });
-    const prediction = decisionRepo.getPredictionByDecision(decision.id);
+    const prediction = decisionRepo.getPredictionByDecision(decision.id, req.userId);
     if (!prediction) return res.status(400).json({ error: true, message: "This decision has no recorded prediction to compare against." });
-    if (decisionRepo.getOutcomeByDecision(decision.id)) {
+    if (decisionRepo.getOutcomeByDecision(decision.id, req.userId)) {
       return res.status(409).json({ error: true, message: "An outcome has already been recorded for this decision." });
     }
 
