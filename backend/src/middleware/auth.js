@@ -12,7 +12,21 @@ const authService = require("../services/authService");
 // account id — this is what enables cross-device cloud sync later.
 function resolveUser(req, res, next) {
   if (!config.authEnabled) {
-    req.userId = req.header("X-Device-Id") || "local";
+    // Reject rather than default to a shared "local" id: in local mode
+    // this header is the ONLY thing separating one founder's data from
+    // another's (no login at all). Silently bucketing every headerless
+    // request into the same literal account would mean any client that
+    // omits it — a stripped proxy, a raw API call, a future non-browser
+    // client — transparently shares data with every other headerless
+    // client. The frontend always sends a real generated id (see
+    // utils/deviceId.js), so this never fires for normal app usage; it
+    // only catches the cases where something upstream should be fixed
+    // instead of silently working around.
+    const deviceId = req.header("X-Device-Id");
+    if (!deviceId) {
+      return res.status(400).json({ error: true, message: "Missing X-Device-Id header." });
+    }
+    req.userId = deviceId;
     return next();
   }
 
