@@ -51,8 +51,8 @@ router.post(
     // re-trigger a simulation to surface it.
     const recentDecisions = decisionRepo.listDecisions(req.userId, { limit: 8 }).map((d) => ({
       ...d,
-      prediction: decisionRepo.getPredictionByDecision(d.id),
-      outcome: decisionRepo.getOutcomeByDecision(d.id),
+      prediction: decisionRepo.getPredictionByDecision(d.id, req.userId),
+      outcome: decisionRepo.getOutcomeByDecision(d.id, req.userId),
     }));
     const learnedPatterns = decisionRepo.listPatterns(req.userId, { limit: 10 });
 
