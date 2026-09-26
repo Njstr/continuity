@@ -51,7 +51,13 @@ const insertPredictionStmt = db.prepare(`
   VALUES (@id, @decisionId, @userId, @companySnapshot, @currentSituation, @expectedImpact, @assumptions, @risks, @bestCase, @expectedCase, @worstCase, @confidence, @evaluationDate, @createdAt)
 `);
 const PRED_COLUMNS = `id, decision_id AS decisionId, user_id AS userId, company_snapshot AS companySnapshot, current_situation AS currentSituation, expected_impact AS expectedImpact, assumptions, risks, best_case AS bestCase, expected_case AS expectedCase, worst_case AS worstCase, confidence, evaluation_date AS evaluationDate, created_at AS createdAt`;
-const getPredictionByDecisionStmt = db.prepare(`SELECT ${PRED_COLUMNS} FROM predictions WHERE decision_id = ?`);
+// Scoped by user_id, like every other per-decision lookup in this file —
+// decision_id alone is not treated as sufficient authorization, even
+// though every current caller already pre-scopes the decision itself via
+// getDecision(id, userId)/listDecisions(userId) before ever reaching this.
+// Defense in depth: a future caller that skips that pre-check must not be
+// able to pull another founder's prediction by guessing/passing a bare id.
+const getPredictionByDecisionStmt = db.prepare(`SELECT ${PRED_COLUMNS} FROM predictions WHERE decision_id = ? AND user_id = ?`);
 const getPredictionStmt = db.prepare(`SELECT ${PRED_COLUMNS} FROM predictions WHERE id = ? AND user_id = ?`);
 // Due for check-in: evaluation_date has passed AND no outcome recorded yet.
 const dueForCheckInStmt = db.prepare(`
@@ -92,8 +98,8 @@ function createPrediction({ decisionId, userId, companySnapshot, currentSituatio
   });
   return parsePredictionRow(getPredictionStmt.get(id, String(userId)));
 }
-function getPredictionByDecision(decisionId) {
-  return parsePredictionRow(getPredictionByDecisionStmt.get(decisionId));
+function getPredictionByDecision(decisionId, userId) {
+  return parsePredictionRow(getPredictionByDecisionStmt.get(decisionId, String(userId)));
 }
 function listDueForCheckIn(userId, asOfISO = nowISO()) {
   return dueForCheckInStmt.all(String(userId), asOfISO).map(parsePredictionRow);
@@ -105,7 +111,8 @@ const insertOutcomeStmt = db.prepare(`
   VALUES (@id, @decisionId, @predictionId, @userId, @actualUpdate, @actualMetricsSnapshot, @comparisonSummary, @assumptionsReview, @recordedAt)
 `);
 const OUT_COLUMNS = `id, decision_id AS decisionId, prediction_id AS predictionId, user_id AS userId, actual_update AS actualUpdate, actual_metrics_snapshot AS actualMetricsSnapshot, comparison_summary AS comparisonSummary, assumptions_review AS assumptionsReview, recorded_at AS recordedAt`;
-const getOutcomeByDecisionStmt = db.prepare(`SELECT ${OUT_COLUMNS} FROM decision_outcomes WHERE decision_id = ?`);
+// Same reasoning as getPredictionByDecisionStmt above.
+const getOutcomeByDecisionStmt = db.prepare(`SELECT ${OUT_COLUMNS} FROM decision_outcomes WHERE decision_id = ? AND user_id = ?`);
 const listOutcomesForUserStmt = db.prepare(`SELECT ${OUT_COLUMNS} FROM decision_outcomes WHERE user_id = ? ORDER BY recorded_at DESC LIMIT ?`);
 
 function parseOutcomeRow(row) {
@@ -126,10 +133,10 @@ function createOutcome({ decisionId, predictionId, userId, actualUpdate, actualM
     assumptionsReview: toJSON(assumptionsReview),
     recordedAt: nowISO(),
   });
-  return parseOutcomeRow(getOutcomeByDecisionStmt.get(decisionId));
+  return parseOutcomeRow(getOutcomeByDecisionStmt.get(decisionId, String(userId)));
 }
-function getOutcomeByDecision(decisionId) {
-  return parseOutcomeRow(getOutcomeByDecisionStmt.get(decisionId));
+function getOutcomeByDecision(decisionId, userId) {
+  return parseOutcomeRow(getOutcomeByDecisionStmt.get(decisionId, String(userId)));
 }
 function listOutcomesForUser(userId, { limit = 50 } = {}) {
   return listOutcomesForUserStmt.all(String(userId), limit).map(parseOutcomeRow);
