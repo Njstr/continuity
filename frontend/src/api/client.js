@@ -131,8 +131,16 @@ async function uploadFiles(path, formData) {
 
 export const api = {
   // ---- AI generation ----
+  // retryOnce: false — this call is not idempotent (it advances real
+  // task/decision state server-side, not just an AI completion). A
+  // client-side timeout doesn't mean the server failed; the client's own
+  // REQUEST_TIMEOUT_MS matches the backend's default requestTimeoutMs, so
+  // a request that's genuinely slow but succeeding can abort here right
+  // as the backend finishes. Silently resubmitting the identical body
+  // then processes the same founder message/decision a second time. See
+  // uploadFiles below, which already avoided this for the same reason.
   chat: (profile, missions, history, mode, scenario, metrics, documentIds) =>
-    request("/api/chat", { body: { profile, missions, history, mode, scenario, metrics, documentIds } }),
+    request("/api/chat", { body: { profile, missions, history, mode, scenario, metrics, documentIds }, retryOnce: false }),
   generateChatTitle: (messages) => request("/api/chat/title", { body: { messages } }),
 
   // ---- Documents (in-chat upload) ----
@@ -149,13 +157,19 @@ export const api = {
   getConversations: () => request("/api/conversations", { method: "GET" }),
 
   // ---- Decision lifecycle ----
+  // simulate() is safe to retry — it "does NOT persist anything yet" (see
+  // routes/decisions.js), so resubmitting on timeout just re-runs an AI
+  // call, not a duplicate write. record()/recordOutcome() DO persist
+  // (a new decision/prediction row, a new outcome row) with no
+  // idempotency key, so — same reasoning as chat/executionMessage above
+  // — retryOnce: false.
   simulateDecisionV2: (profile, metrics, decisionText, decisionContext) =>
     request("/api/decisions/simulate", { body: { profile, metrics, decisionText, decisionContext } }),
-  recordDecision: (payload) => request("/api/decisions", { body: payload }),
+  recordDecision: (payload) => request("/api/decisions", { body: payload, retryOnce: false }),
   listDecisionsV2: () => request("/api/decisions", { method: "GET" }),
   getDueForCheckIn: () => request("/api/decisions/due", { method: "GET" }),
   recordDecisionOutcome: (decisionId, actualUpdate, actualMetrics) =>
-    request(`/api/decisions/${decisionId}/outcome`, { body: { actualUpdate, actualMetrics } }),
+    request(`/api/decisions/${decisionId}/outcome`, { body: { actualUpdate, actualMetrics }, retryOnce: false }),
   listLearnedPatterns: () => request("/api/decisions/patterns", { method: "GET" }),
   extractMetricsFromText: (text, metricFields) => request("/api/metrics/extract", { body: { text, metricFields } }),
   translate: (text, targetLanguage) => request("/api/translate", { body: { text, targetLanguage } }),
@@ -166,7 +180,9 @@ export const api = {
   geoReadinessCheck: (profile, history) => request("/api/geo-readiness", { body: { profile, history } }),
 
   // ---- Execution engine (evidence-gated task loop) ----
-  executionMessage: (profile, text, recentHistory) => request("/api/execution/message", { body: { profile, text, recentHistory } }),
+  // Same reasoning as chat() above — this can create/complete Task rows,
+  // run a real search, or advance evidence state. Not idempotent.
+  executionMessage: (profile, text, recentHistory) => request("/api/execution/message", { body: { profile, text, recentHistory }, retryOnce: false }),
   executionProgress: (profile) => request(`/api/execution/progress${profile ? `?profile=${encodeURIComponent(JSON.stringify(profile))}` : ""}`, { method: "GET" }),
 
   // ---- Auth (only relevant if the backend has AUTH_ENABLED=true — see
@@ -178,7 +194,9 @@ export const api = {
   login: (email, password) => request("/api/auth/login", { body: { email, password } }),
 
   // ---- Feedback ----
-  submitFeedback: (entry) => request("/api/feedback", { body: entry }).catch(() => {}),
+  // Not idempotent (inserts a new row, no dedup) — retryOnce: false for
+  // the same reason as the other writes above.
+  submitFeedback: (entry) => request("/api/feedback", { body: entry, retryOnce: false }).catch(() => {}),
   getMyFeedback: (limit) => request(`/api/feedback/mine?limit=${limit || 200}`, { method: "GET" }),
 
   // ---- Analytics ----
