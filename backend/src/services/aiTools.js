@@ -1,9 +1,11 @@
 // aiTools.js — FounderOS's tools available to the AI via the generic
 // tool-calling contract in AIProvider.js. Currently just web_search
-// (SearXNG-backed), but built so a second tool is just another entry in
-// TOOLS plus a case in executeTool — nothing provider-specific lives here.
+// (Tavily-backed — see tavilyService.js), but built so a second tool is
+// just another entry in TOOLS plus a case in executeTool — nothing
+// provider-specific lives here beyond the require below.
 
-const searxngService = require("./searxngService");
+const searchProvider = require("./tavilyService");
+const { classifyRedditUrl } = require("./searchResultUtils");
 
 const WEB_SEARCH_TOOL = {
   name: "web_search",
@@ -15,13 +17,10 @@ const WEB_SEARCH_TOOL = {
       query: { type: "string", description: "The search query. For Reddit/community discovery, use site:reddit.com or site:reddit.com/r/ in the query." },
       categories: {
         type: "array",
-        items: { type: "string", enum: ["general", "news", "it", "science", "files", "images", "videos", "music", "social media", "map"] },
-        description: "Optional. Narrows results to these categories.",
+        items: { type: "string", enum: ["general", "news"] },
+        description: "Optional. Use ['news'] for current-events/news-focused results, otherwise omit for general web results.",
       },
-      engines: { type: "array", items: { type: "string" }, description: "Optional. Specific search engines to use, if you need to target one in particular." },
-      language: { type: "string", description: "Optional. Language code, e.g. 'en'." },
       time_range: { type: "string", enum: ["day", "week", "month", "year"], description: "Optional. Restricts results to a recent time window — useful for 'latest'/'current' questions." },
-      page: { type: "integer", description: "Optional. Result page number, for going beyond the first page." },
       max_results: { type: "integer", description: "Optional. How many results to return (server caps this regardless)." },
     },
     required: ["query"],
@@ -39,7 +38,7 @@ const TOOLS = [WEB_SEARCH_TOOL];
 function formatResultsForModel(query, results) {
   if (!results.length) return `No results found for "${query}".`;
   const lines = results.map((r, i) => {
-    const redditTag = r.url.includes("reddit.com") ? ` [${searxngService.classifyRedditUrl(r.url)?.type || "reddit"}]` : "";
+    const redditTag = r.url.includes("reddit.com") ? ` [${classifyRedditUrl(r.url)?.type || "reddit"}]` : "";
     const date = r.publishedDate ? ` (${r.publishedDate})` : "";
     return `${i + 1}. ${r.title}${redditTag}${date}\n   ${r.url}\n   ${r.snippet}`;
   });
@@ -55,11 +54,12 @@ function formatResultsForModel(query, results) {
 // gets a clean, short, terminal failure message, never a pivot back into
 // chatting.
 const ERROR_MESSAGES = {
-  SEARXNG_NOT_CONFIGURED: "Web search is not set up on this server right now.",
-  SEARXNG_TIMEOUT: "The search timed out.",
-  SEARXNG_UNREACHABLE: "The web search service could not be reached.",
-  SEARXNG_RATE_LIMITED: "Web search is rate-limited right now.",
-  SEARXNG_MALFORMED_RESPONSE: "The web search service returned an unreadable response.",
+  SEARCH_NOT_CONFIGURED: "Web search is not set up on this server right now.",
+  SEARCH_TIMEOUT: "The search timed out.",
+  SEARCH_UNREACHABLE: "The web search service could not be reached.",
+  SEARCH_RATE_LIMITED: "Web search is rate-limited right now.",
+  SEARCH_UNAUTHORIZED: "Web search authentication failed on this server.",
+  SEARCH_MALFORMED_RESPONSE: "The web search service returned an unreadable response.",
   INVALID_QUERY: "That search query wasn't valid.",
 };
 const DEFAULT_ERROR_MESSAGE = "Web search is temporarily unavailable.";
@@ -89,13 +89,10 @@ async function executeTool(name, args) {
   }
 
   try {
-    const { results } = await searxngService.search({
+    const { results } = await searchProvider.search({
       query: args.query,
       categories: args.categories,
-      engines: args.engines,
-      language: args.language,
       timeRange: args.time_range,
-      page: args.page,
       maxResults: args.max_results,
     });
     return {
