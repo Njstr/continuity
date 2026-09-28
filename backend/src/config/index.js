@@ -42,13 +42,21 @@ const config = {
   authEnabled: req("AUTH_ENABLED", "false") === "true",
   analyticsEnabled: req("ANALYTICS_ENABLED", "true") === "true",
 
-  // SearXNG — self-hosted metasearch instance backing the AI's web_search
-  // tool (see services/searxngService.js). URL is deliberately
-  // server-side only: it's never sent to the browser, only used by the
-  // backend to make the actual search request.
-  searxngUrl: req("SEARXNG_URL", "https://founderos-searxng.onrender.com"),
+  // SearXNG — self-hosted metasearch instance. No longer the active web
+  // search provider (see tavilyService.js's module comment for why), but
+  // left configurable/unremoved in case self-hosting is revisited —
+  // nothing currently reads these at runtime.
+  searxngUrl: req("SEARXNG_URL", ""),
   searxngTimeoutMs: parseInt(req("SEARXNG_TIMEOUT_MS", "8000"), 10),
   searxngMaxResults: parseInt(req("SEARXNG_MAX_RESULTS", "10"), 10),
+
+  // Tavily — the active web search provider backing the AI's web_search
+  // tool (see services/tavilyService.js). Key is deliberately server-side
+  // only: never sent to the browser, only used by the backend to make
+  // the actual search request. Get a free key at https://app.tavily.com.
+  tavilyApiKey: req("TAVILY_API_KEY", ""),
+  tavilyTimeoutMs: parseInt(req("TAVILY_TIMEOUT_MS", "8000"), 10),
+  tavilyMaxResults: parseInt(req("TAVILY_MAX_RESULTS", "10"), 10),
 
   // Simple shared-secret gate on GET /api/feedback, since there's no real
   // admin role system yet. Not set = the endpoint is closed entirely.
@@ -88,15 +96,13 @@ function validate() {
 
 if (isProduction) validate();
 
-// This was the actual root cause of "SearXNG isn't working" (see
-// webResearchService.js's module comment for the full story): a missing
-// SEARXNG_URL fails every search silently via aiTools.js's
-// SEARXNG_NOT_CONFIGURED handling, and nothing previously surfaced that
-// anywhere visible — the app just quietly never did live research. This
-// warning, plus the new GET /execution/research-health diagnostic route,
-// replace "silently broken" with "visibly and checkably not configured."
-if (!config.searxngUrl) {
-  console.warn("[config] SEARXNG_URL is not set — live web research is unavailable until it is. See GET /api/execution/research-health.");
+// A missing TAVILY_API_KEY fails every search silently via aiTools.js's
+// SEARCH_NOT_CONFIGURED handling unless something surfaces it visibly —
+// same lesson learned from the earlier SEARXNG_URL version of this same
+// warning. This, plus GET /api/execution/research-health, replace
+// "silently broken" with "visibly and checkably not configured."
+if (!config.tavilyApiKey) {
+  console.warn("[config] TAVILY_API_KEY is not set — live web research is unavailable until it is. Get a free key at https://app.tavily.com. See GET /api/execution/research-health.");
 }
 
 module.exports = config;
