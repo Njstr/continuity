@@ -6,7 +6,7 @@ import { C, F } from "../styles/theme";
 // data from an actual search (see aiService.js's `sources`/`citations`
 // fields), never text the model could invent. Deliberately separate from
 // the reply bubble itself so "AI analysis" and "Sources" stay visually
-// distinct, per the SearXNG integration spec (§7/§8): the founder should
+// distinct, per the web-search integration spec (§7/§8): the founder should
 // always be able to see and open exactly what backed an answer.
 export function SourcesList({ sources }) {
   if (!sources || !sources.length) return null;
@@ -22,7 +22,7 @@ export function SourcesList({ sources }) {
             // Malformed URL somehow slipped through — fall back to
             // showing the raw string rather than crashing the render;
             // the backend already validates URLs before this ever
-            // reaches the frontend (see searxngService.sanitizeUrl), so
+            // reaches the frontend (see searchResultUtils.sanitizeUrl), so
             // this is a defensive backstop, not the expected path.
           }
           return (
