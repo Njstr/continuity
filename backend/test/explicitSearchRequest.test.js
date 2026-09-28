@@ -2,19 +2,20 @@
 // command ("Search reddit", "Search reddit for X") must trigger a real
 // search instead of being swallowed by onboarding/conversational flow.
 //
-// Pattern matches the rest of this test suite (see aiTools.test.js):
-// - A real local HTTP server stands in for SearXNG (not stubbed at the
-//   aiTools boundary) so the full aiTools -> searxngService -> HTTP path
-//   is genuinely exercised.
-// - A real scratch SQLite DATA_DIR, migrated fresh, so founder_state
-//   reads/writes are genuine, not mocked.
-// - aiService is stubbed via require.cache injection (not the AI
-//   provider's HTTP endpoint) since this fix's own logic — the keyword
-//   gate, the platform prefixing, the success/no-results/error branching
-//   — lives entirely in executionEngine.js and doesn't need a real model
-//   call to exercise; what it DOES need is confidence that
-//   detectExplicitActionRequest is (or isn't) actually invoked, which a
-//   call-counting stub gives directly.
+// Originally written against a self-hosted SearXNG instance; updated
+// when the search provider switched to Tavily (see tavilyService.js's
+// module comment for why). Tavily's API is POST with a JSON body and a
+// hardcoded https://api.tavily.com/search URL (no per-deployment
+// SEARXNG_URL-style config), so these tests redirect global.fetch for
+// that exact URL to a local mock server, and read the query from the
+// POST body instead of a query-string param. Error codes are the
+// provider-neutral SEARCH_* namespace (previously SEARXNG_*).
+//
+// Pattern otherwise matches the rest of this suite: a real local HTTP
+// server standing in for the search provider (not stubbed at the
+// aiTools boundary), a real scratch SQLite DATA_DIR, and aiService
+// stubbed via require.cache injection for the parts that would otherwise
+// need a real AI provider call.
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
@@ -25,19 +26,51 @@ const os = require("node:os");
 
 const BASE = path.join(__dirname, "..");
 
-function startMockSearxng(resultsOrFn) {
+function startMockTavily(handler) {
   return new Promise((resolve) => {
     const server = http.createServer((req, res) => {
-      const payload = typeof resultsOrFn === "function" ? resultsOrFn(req) : resultsOrFn;
-      if (payload === null) {
-        // Simulate a slow/hanging upstream for timeout testing.
-        return; // never respond
-      }
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(payload));
+      let raw = "";
+      req.on("data", (chunk) => (raw += chunk));
+      req.on("end", () => {
+        let body = {};
+        try {
+          body = JSON.parse(raw);
+        } catch (e) {}
+        handler(body, res);
+      });
     });
     server.listen(0, "127.0.0.1", () => resolve(server));
   });
+}
+
+function fixedResultsHandler(results) {
+  return (body, res) => {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ results }));
+  };
+}
+
+function neverRespondHandler() {
+  return (body, res) => {
+    /* never respond — for timeout testing */
+  };
+}
+
+// tavilyService.js hardcodes the real Tavily URL, so redirect fetch for
+// that exact URL to the local mock server instead of pointing config at
+// a different host.
+function redirectTavilyFetchTo(mockServerOrPort) {
+  const realFetch = global.fetch;
+  const port = typeof mockServerOrPort === "number" ? mockServerOrPort : mockServerOrPort.address().port;
+  global.fetch = async (url, opts) => {
+    if (url === "https://api.tavily.com/search") {
+      return realFetch(`http://127.0.0.1:${port}`, opts);
+    }
+    return realFetch(url, opts);
+  };
+  return () => {
+    global.fetch = realFetch;
+  };
 }
 
 function freshModules(extra = []) {
@@ -49,10 +82,10 @@ function freshModules(extra = []) {
   // connection/dataDir while the freshly-required repository reads from
   // a DIFFERENT (new, unmigrated) dataDir — silently produces "no such
   // table" errors that look unrelated to the actual code under test.
-  // Caught by running the full suite (not just each test in isolation).
   const mods = [
     "src/config/index.js",
-    "src/services/searxngService.js",
+    "src/services/tavilyService.js",
+    "src/services/searchResultUtils.js",
     "src/services/aiTools.js",
     "src/services/aiService.js",
     "src/services/executionEngine.js",
@@ -79,18 +112,9 @@ function setupScratchDb() {
   return dataDir;
 }
 
-// Installs a call-counting stub for aiService.detectExplicitActionRequest
-// / draftSearchAnswer into require.cache BEFORE executionEngine.js is
-// required, so executionEngine's `require("./aiService")` picks up the
-// stub instead of the real module (which would otherwise try to hit a
-// real AI provider). Real functions (synthesizeOnboardingTurn etc.) are
-// passed through from the real module so onboarding-regression tests
-// still exercise real prompt-building logic where useful — but since
-// those still require a real provider, tests that touch them are
-// deliberately narrow-scoped to plain-call-counting, not full JSON output.
 function installAiServiceStub({ detectImpl, draftImpl }) {
   const p = path.join(BASE, "src/services/aiService.js");
-  const real = require(p); // still loads real module first (cheap — no provider call at require time)
+  const real = require(p);
   const calls = { detect: 0, draft: 0, onboarding: 0 };
   const stub = {
     ...real,
@@ -114,15 +138,15 @@ function installAiServiceStub({ detectImpl, draftImpl }) {
 test("explicit search request — 'Search Reddit' alone finds results, never asks for a name", async () => {
   freshModules();
   setupScratchDb();
-  const searxng = await startMockSearxng({
-    results: [
-      { title: "r/leadgen", url: "https://www.reddit.com/r/leadgen/", content: "Community about lead generation problems", engine: "reddit" },
-      { title: "Struggling with lead gen", url: "https://www.reddit.com/r/leadgen/comments/xyz/struggling/", content: "Founders sharing pain points", engine: "reddit" },
-    ],
-  });
+  const tavily = await startMockTavily(
+    fixedResultsHandler([
+      { title: "r/leadgen", url: "https://www.reddit.com/r/leadgen/", content: "Community about lead generation problems" },
+      { title: "Struggling with lead gen", url: "https://www.reddit.com/r/leadgen/comments/xyz/struggling/", content: "Founders sharing pain points" },
+    ])
+  );
+  const restoreFetch = redirectTavilyFetchTo(tavily);
   try {
-    const { port } = searxng.address();
-    process.env.SEARXNG_URL = `http://127.0.0.1:${port}`;
+    process.env.TAVILY_API_KEY = "tvly-test-key";
 
     require(path.join(BASE, "src/db/migrate.js")).runMigrations();
     const calls = installAiServiceStub({
@@ -150,19 +174,18 @@ test("explicit search request — 'Search Reddit' alone finds results, never ask
     assert.equal(calls.onboarding, 0, "must never touch the onboarding path");
     assert.equal(result.sources.length, 2);
   } finally {
-    searxng.close();
+    restoreFetch();
+    tavily.close();
   }
 });
 
 test("explicit search request — 'Search Reddit for X' does not ask about the startup", async () => {
   freshModules();
   setupScratchDb();
-  const searxng = await startMockSearxng({
-    results: [{ title: "r/SaaS", url: "https://www.reddit.com/r/SaaS/", content: "SaaS founders discussing pricing", engine: "reddit" }],
-  });
+  const tavily = await startMockTavily(fixedResultsHandler([{ title: "r/SaaS", url: "https://www.reddit.com/r/SaaS/", content: "SaaS founders discussing pricing" }]));
+  const restoreFetch = redirectTavilyFetchTo(tavily);
   try {
-    const { port } = searxng.address();
-    process.env.SEARXNG_URL = `http://127.0.0.1:${port}`;
+    process.env.TAVILY_API_KEY = "tvly-test-key";
 
     require(path.join(BASE, "src/db/migrate.js")).runMigrations();
     const calls = installAiServiceStub({
@@ -177,39 +200,45 @@ test("explicit search request — 'Search Reddit for X' does not ask about the s
     assert.ok(!/what.*startup|tell me more about your|what are you building/i.test(result.reply));
     assert.equal(calls.onboarding, 0);
   } finally {
-    searxng.close();
+    restoreFetch();
+    tavily.close();
   }
 });
 
 test("explicit search request — network failure produces a clean, short message; no fabricated results, no follow-up question", async () => {
   freshModules();
   setupScratchDb();
-  process.env.SEARXNG_URL = "http://127.0.0.1:19999"; // nothing listening -> ECONNREFUSED -> SEARXNG_UNREACHABLE
+  const restoreFetch = redirectTavilyFetchTo(19999); // nothing listening -> ECONNREFUSED -> SEARCH_UNREACHABLE
+  try {
+    process.env.TAVILY_API_KEY = "tvly-test-key";
 
-  require(path.join(BASE, "src/db/migrate.js")).runMigrations();
-  const calls = installAiServiceStub({
-    detectImpl: async () => ({ isExplicitSearch: true, source: "reddit", query: "anything" }),
-  });
-  const executionEngine = require(path.join(BASE, "src/services/executionEngine.js"));
+    require(path.join(BASE, "src/db/migrate.js")).runMigrations();
+    const calls = installAiServiceStub({
+      detectImpl: async () => ({ isExplicitSearch: true, source: "reddit", query: "anything" }),
+    });
+    const executionEngine = require(path.join(BASE, "src/services/executionEngine.js"));
 
-  const result = await executionEngine.handleMessage("user-search-3", { profile: {}, text: "Search Reddit for anything", recentHistory: [] });
+    const result = await executionEngine.handleMessage("user-search-3", { profile: {}, text: "Search Reddit for anything", recentHistory: [] });
 
-  assert.equal(result.event, "search_result");
-  assert.equal(result.task, null);
-  assert.equal(calls.draft, 0, "must not attempt to draft an answer from nonexistent results");
-  assert.ok(!/\?$/.test(result.reply.trim()), "must be a terminal statement, not a follow-up question");
-  assert.ok(!/ECONNREFUSED|Error:|stack/i.test(result.reply), "no raw error leaked");
-  assert.match(result.reply, /couldn't search|please try again/i);
+    assert.equal(result.event, "search_result");
+    assert.equal(result.task, null);
+    assert.equal(calls.draft, 0, "must not attempt to draft an answer from nonexistent results");
+    assert.ok(!/\?$/.test(result.reply.trim()), "must be a terminal statement, not a follow-up question");
+    assert.ok(!/ECONNREFUSED|Error:|stack/i.test(result.reply), "no raw error leaked");
+    assert.match(result.reply, /couldn't search|please try again/i);
+  } finally {
+    restoreFetch();
+  }
 });
 
 test("explicit search request — timeout produces the timeout-specific message", async () => {
   freshModules();
   setupScratchDb();
-  const searxng = await startMockSearxng(null); // never responds
+  const tavily = await startMockTavily(neverRespondHandler());
+  const restoreFetch = redirectTavilyFetchTo(tavily);
   try {
-    const { port } = searxng.address();
-    process.env.SEARXNG_URL = `http://127.0.0.1:${port}`;
-    process.env.SEARXNG_TIMEOUT_MS = "300"; // fast timeout so the test doesn't hang
+    process.env.TAVILY_API_KEY = "tvly-test-key";
+    process.env.TAVILY_TIMEOUT_MS = "300"; // fast timeout so the test doesn't hang
 
     require(path.join(BASE, "src/db/migrate.js")).runMigrations();
     installAiServiceStub({
@@ -222,18 +251,19 @@ test("explicit search request — timeout produces the timeout-specific message"
     assert.equal(result.event, "search_result");
     assert.match(result.reply, /timed out/i);
   } finally {
-    searxng.close();
-    delete process.env.SEARXNG_TIMEOUT_MS;
+    restoreFetch();
+    tavily.close();
+    delete process.env.TAVILY_TIMEOUT_MS;
   }
 });
 
 test("explicit search request — zero results is treated as zero-results, not an error", async () => {
   freshModules();
   setupScratchDb();
-  const searxng = await startMockSearxng({ results: [] });
+  const tavily = await startMockTavily(fixedResultsHandler([]));
+  const restoreFetch = redirectTavilyFetchTo(tavily);
   try {
-    const { port } = searxng.address();
-    process.env.SEARXNG_URL = `http://127.0.0.1:${port}`;
+    process.env.TAVILY_API_KEY = "tvly-test-key";
 
     require(path.join(BASE, "src/db/migrate.js")).runMigrations();
     const calls = installAiServiceStub({
@@ -247,7 +277,8 @@ test("explicit search request — zero results is treated as zero-results, not a
     assert.equal(calls.draft, 0, "no AI draft call for the zero-results case — fixed template only");
     assert.match(result.reply, /couldn't find relevant LinkedIn discussions/i);
   } finally {
-    searxng.close();
+    restoreFetch();
+    tavily.close();
   }
 });
 
@@ -270,8 +301,6 @@ test("non-trigger conversational messages never reach the classifier at all", as
 });
 
 test("classifier correctly says no for topic-adjacent conversation even when the keyword gate lets it through", async () => {
-  // These don't contain a literal gate keyword, so this mostly documents
-  // the classifier's own job (tested via stub) rather than the gate's.
   freshModules();
   setupScratchDb();
   require(path.join(BASE, "src/db/migrate.js")).runMigrations();
@@ -280,7 +309,6 @@ test("classifier correctly says no for topic-adjacent conversation even when the
   });
   const executionEngine = require(path.join(BASE, "src/services/executionEngine.js"));
 
-  // "research" is a gate keyword, but this is a statement, not a command.
   const result = await executionEngine.handleExplicitSearchRequest("user-adjacent", { text: "I've been doing a lot of research on my own about this problem", recentHistory: [] });
   assert.equal(result, null);
   assert.equal(calls.detect, 1, "gate correctly let it through to the classifier");
@@ -307,10 +335,10 @@ test("regression — onboarding flow is completely unaffected for an ordinary (n
 
 test("aiTools.executeTool additive fields are correct for success, zero-results, and error, and remain backward-compatible", async () => {
   freshModules();
-  const searxng = await startMockSearxng({ results: [{ title: "A", url: "https://example.com/a", content: "x", engine: "google" }] });
+  const tavily = await startMockTavily(fixedResultsHandler([{ title: "A", url: "https://example.com/a", content: "x" }]));
+  const restore1 = redirectTavilyFetchTo(tavily);
   try {
-    const { port } = searxng.address();
-    process.env.SEARXNG_URL = `http://127.0.0.1:${port}`;
+    process.env.TAVILY_API_KEY = "tvly-test-key";
     const aiTools = require(path.join(BASE, "src/services/aiTools.js"));
 
     const ok = await aiTools.executeTool("web_search", { query: "test" });
@@ -321,15 +349,21 @@ test("aiTools.executeTool additive fields are correct for success, zero-results,
     assert.equal(typeof ok.textForModel, "string");
     assert.ok(Array.isArray(ok.sources));
   } finally {
-    searxng.close();
+    restore1();
+    tavily.close();
   }
 
   freshModules();
-  process.env.SEARXNG_URL = "http://127.0.0.1:19999";
-  const aiTools2 = require(path.join(BASE, "src/services/aiTools.js"));
-  const bad = await aiTools2.executeTool("web_search", { query: "test" });
-  assert.equal(bad.success, false);
-  assert.equal(bad.resultCount, 0);
-  assert.equal(bad.errorCode, "SEARXNG_UNREACHABLE");
-  assert.equal(bad.errorMessage, "The web search service could not be reached.");
+  const restore2 = redirectTavilyFetchTo(19999);
+  try {
+    process.env.TAVILY_API_KEY = "tvly-test-key";
+    const aiTools2 = require(path.join(BASE, "src/services/aiTools.js"));
+    const bad = await aiTools2.executeTool("web_search", { query: "test" });
+    assert.equal(bad.success, false);
+    assert.equal(bad.resultCount, 0);
+    assert.equal(bad.errorCode, "SEARCH_UNREACHABLE");
+    assert.equal(bad.errorMessage, "The web search service could not be reached.");
+  } finally {
+    restore2();
+  }
 });
