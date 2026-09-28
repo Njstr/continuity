@@ -1,7 +1,16 @@
 // Tests for the AI tool-calling layer (services/aiTools.js and the
 // OpenAI-compatible tool loop in providers/openAiCompatibleTools.js, as
 // used by aiService.chat()). Uses a mocked provider HTTP endpoint and a
-// self-contained mock SearXNG server — no real network dependency.
+// self-contained mock Tavily server — no real network dependency.
+//
+// aiTools.js talks to the configured search provider via a real HTTP
+// request, same as before this was Tavily — but Tavily's API is POST
+// with a JSON body (query in the body, auth via an Authorization header)
+// rather than SearXNG's GET with querystring params, so the mock server
+// here reads the request body rather than the URL's query string. The
+// mock always returns the same fixed result set regardless of the exact
+// body sent — these tests aren't asserting on Tavily's exact request
+// shape, only on aiTools.js's handling of what comes back.
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
@@ -12,29 +21,58 @@ const BASE = path.join(__dirname, "..");
 
 const MOCK_RESULTS = {
   results: [
-    { title: "Best AI agent frameworks 2026", url: "https://example.com/ai-agents", content: "A roundup of frameworks for building autonomous agents.", engine: "google" },
-    { title: "r/AIagents", url: "https://www.reddit.com/r/AIagents/", content: "Community for people building AI agents", engine: "reddit" },
-    { title: "Someone's post about agents", url: "https://www.reddit.com/r/AIagents/comments/abc123/my_agent_setup/", content: "Here's how I built my agent stack", engine: "reddit" },
+    { title: "Best AI agent frameworks 2026", url: "https://example.com/ai-agents", content: "A roundup of frameworks for building autonomous agents." },
+    { title: "r/AIagents", url: "https://www.reddit.com/r/AIagents/", content: "Community for people building AI agents" },
+    { title: "Someone's post about agents", url: "https://www.reddit.com/r/AIagents/comments/abc123/my_agent_setup/", content: "Here's how I built my agent stack" },
   ],
 };
 
-function startMockSearxng() {
+function startMockTavily(responsePayload = MOCK_RESULTS) {
   return new Promise((resolve) => {
     const server = http.createServer((req, res) => {
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(MOCK_RESULTS));
+      let raw = "";
+      req.on("data", (chunk) => (raw += chunk));
+      req.on("end", () => {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(typeof responsePayload === "function" ? responsePayload(raw) : responsePayload));
+      });
     });
     server.listen(0, "127.0.0.1", () => resolve(server));
   });
 }
 
-test("aiTools.executeTool — real search via the shared searxngService", async (t) => {
-  const server = await startMockSearxng();
-  const { port } = server.address();
-  process.env.SEARXNG_URL = `http://127.0.0.1:${port}`;
-  delete require.cache[require.resolve(path.join(BASE, "src/config/index.js"))];
-  delete require.cache[require.resolve(path.join(BASE, "src/services/searxngService.js"))];
-  delete require.cache[require.resolve(path.join(BASE, "src/services/aiTools.js"))];
+// tavilyService.js hardcodes the real https://api.tavily.com/search URL
+// (unlike the old SearXNG service, which pointed at a configurable
+// SEARXNG_URL) — so these tests monkey-patch global.fetch to redirect
+// that exact URL to the local mock server, rather than pointing config
+// at a different host.
+function redirectTavilyFetchTo(mockServer) {
+  const realFetch = global.fetch;
+  const { port } = mockServer.address();
+  global.fetch = async (url, opts) => {
+    if (url === "https://api.tavily.com/search") {
+      return realFetch(`http://127.0.0.1:${port}`, opts);
+    }
+    return realFetch(url, opts);
+  };
+  return () => {
+    global.fetch = realFetch;
+  };
+}
+
+function freshRequire(...relPaths) {
+  for (const p of relPaths) {
+    try {
+      delete require.cache[require.resolve(path.join(BASE, p))];
+    } catch (e) {}
+  }
+}
+
+test("aiTools.executeTool — real search via the shared tavilyService", async (t) => {
+  const server = await startMockTavily();
+  const restoreFetch = redirectTavilyFetchTo(server);
+  process.env.TAVILY_API_KEY = "tvly-test-key";
+  freshRequire("src/config/index.js", "src/services/tavilyService.js", "src/services/searchResultUtils.js", "src/services/aiTools.js");
   const aiTools = require(path.join(BASE, "src/services/aiTools.js"));
 
   await t.test("returns real results with sources, correctly labeled", async () => {
@@ -43,6 +81,8 @@ test("aiTools.executeTool — real search via the shared searxngService", async 
     assert.ok(result.sources.every((s) => s.url.startsWith("http")));
     assert.ok(result.textForModel.includes("[community]"));
     assert.ok(result.textForModel.includes("[post]"));
+    assert.equal(result.success, true);
+    assert.equal(result.resultCount, 3);
   });
 
   await t.test("unknown tool name returns a safe message, doesn't throw", async () => {
@@ -51,41 +91,52 @@ test("aiTools.executeTool — real search via the shared searxngService", async 
     assert.match(result.textForModel, /Unknown tool/);
   });
 
+  restoreFetch();
   server.close();
 });
 
-test("aiTools.executeTool — SearXNG unreachable is handled gracefully", async () => {
-  process.env.SEARXNG_URL = "http://127.0.0.1:19999"; // nothing listening
-  delete require.cache[require.resolve(path.join(BASE, "src/config/index.js"))];
-  delete require.cache[require.resolve(path.join(BASE, "src/services/searxngService.js"))];
-  delete require.cache[require.resolve(path.join(BASE, "src/services/aiTools.js"))];
+test("aiTools.executeTool — search provider unreachable is handled gracefully", async () => {
+  const restoreFetch = redirectTavilyFetchTo({ address: () => ({ port: 19999 }) }); // nothing listening on this port
+  process.env.TAVILY_API_KEY = "tvly-test-key";
+  freshRequire("src/config/index.js", "src/services/tavilyService.js", "src/services/aiTools.js");
   const aiTools = require(path.join(BASE, "src/services/aiTools.js"));
 
   const result = await aiTools.executeTool("web_search", { query: "test" });
   assert.equal(result.sources.length, 0, "no sources when search fails");
   assert.ok(!/Error:|ECONNREFUSED|stack/i.test(result.textForModel), "no raw error/stack leaked to the model-facing text");
   assert.match(result.textForModel, /could not be reached|temporarily unavailable/i);
+  assert.equal(result.errorCode, "SEARCH_UNREACHABLE");
+
+  restoreFetch();
+});
+
+test("aiTools.executeTool — missing TAVILY_API_KEY is a clean SEARCH_NOT_CONFIGURED, not a crash", async () => {
+  delete process.env.TAVILY_API_KEY;
+  freshRequire("src/config/index.js", "src/services/tavilyService.js", "src/services/aiTools.js");
+  const aiTools = require(path.join(BASE, "src/services/aiTools.js"));
+
+  const result = await aiTools.executeTool("web_search", { query: "test" });
+  assert.equal(result.success, false);
+  assert.equal(result.errorCode, "SEARCH_NOT_CONFIGURED");
 });
 
 test("full tool-calling loop through aiService.chat() (OpenAI-compatible / Nvidia provider)", async (t) => {
-  const searxng = await startMockSearxng();
-  const { port: searxngPort } = searxng.address();
+  const tavily = await startMockTavily();
+  const restoreTavilyFetch = redirectTavilyFetchTo(tavily);
 
   const dataDir = path.join(require("node:os").tmpdir(), `founderos-test-${Date.now()}`);
   require("node:fs").mkdirSync(dataDir, { recursive: true });
 
-  process.env.SEARXNG_URL = `http://127.0.0.1:${searxngPort}`;
+  process.env.TAVILY_API_KEY = "tvly-test-key";
   process.env.AI_PROVIDER = "nvidia";
   process.env.NVIDIA_API_KEY = "test-key";
   process.env.NVIDIA_MODEL = "test-model";
   process.env.DATA_DIR = dataDir;
-  delete require.cache[require.resolve(path.join(BASE, "src/config/index.js"))];
-  delete require.cache[require.resolve(path.join(BASE, "src/services/searxngService.js"))];
-  delete require.cache[require.resolve(path.join(BASE, "src/services/aiTools.js"))];
+  freshRequire("src/config/index.js", "src/services/tavilyService.js", "src/services/aiTools.js");
 
   require(path.join(BASE, "src/db/migrate.js")).runMigrations();
 
-  const realFetch = global.fetch;
+  const realFetch = global.fetch; // already patched by redirectTavilyFetchTo above — wrap further, not replace
   let scriptedResponses = [];
   let providerCallIndex = 0;
   const providerCallLog = [];
@@ -102,8 +153,7 @@ test("full tool-calling loop through aiService.chat() (OpenAI-compatible / Nvidi
     return realFetch(url, opts);
   };
 
-  delete require.cache[require.resolve(path.join(BASE, "src/services/aiService.js"))];
-  delete require.cache[require.resolve(path.join(BASE, "src/services/executionEngine.js"))];
+  freshRequire("src/services/aiService.js", "src/services/executionEngine.js");
   const aiService = require(path.join(BASE, "src/services/aiService.js"));
 
   const PROFILE = { founderName: "Neehal", startupName: "FounderOS", oneLiner: "AI decision intelligence", stage: "idea", country: "India", currency: "INR" };
@@ -148,11 +198,11 @@ test("full tool-calling loop through aiService.chat() (OpenAI-compatible / Nvidi
   });
 
   await t.test("duplicate URLs across multiple result entries are deduplicated, not double-counted as separate sources", async () => {
-    // Reuses the same mock SearXNG results (which already contain a
-    // duplicate example.com URL) via a direct search — confirms
-    // dedup happens before sources ever reach the model or the founder.
-    delete require.cache[require.resolve(path.join(BASE, "src/services/searxngService.js"))];
-    delete require.cache[require.resolve(path.join(BASE, "src/services/aiTools.js"))];
+    // Reuses the same mock Tavily results (which already contain a
+    // duplicate example.com-style URL set) via a direct search —
+    // confirms dedup happens before sources ever reach the model or the
+    // founder.
+    freshRequire("src/services/tavilyService.js", "src/services/aiTools.js");
     const aiTools = require(path.join(BASE, "src/services/aiTools.js"));
     const result = await aiTools.executeTool("web_search", { query: "AI agent frameworks" });
     const urls = result.sources.map((s) => s.url);
@@ -160,5 +210,6 @@ test("full tool-calling loop through aiService.chat() (OpenAI-compatible / Nvidi
   });
 
   global.fetch = realFetch;
-  searxng.close();
+  restoreTavilyFetch();
+  tavily.close();
 });
