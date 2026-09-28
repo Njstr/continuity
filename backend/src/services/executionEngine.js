@@ -296,7 +296,7 @@ async function runResearch(userId, topic, founderState) {
   const startupContext = startupResearchContext(founderState || {});
   const plan = await aiService.planResearchQueries(userId, { topic, startupContext });
   const queries = plan.queries && plan.queries.length ? plan.queries : [topic];
-  const retrieval = await webResearch.research(queries, { maxSourcesToFetch: MAX_RESEARCH_SOURCES }); // throws SEARXNG_* on total failure — never caught here
+  const retrieval = await webResearch.research(queries, { maxSourcesToFetch: MAX_RESEARCH_SOURCES }); // throws SEARCH_* on total failure — never caught here
   const synthesis = await aiService.synthesizeResearch(userId, { topic, startupContext, sources: retrieval.sources });
   return { topic, queries: retrieval.queriesRun, queriesFailed: retrieval.queriesFailed, sources: retrieval.sources, ...synthesis };
 }
@@ -869,8 +869,9 @@ function noResultsReply(platformLabel) {
   return `I couldn't find relevant ${platformLabel} discussions for that search.`;
 }
 function errorReply(toolResult, platformLabel) {
-  if (toolResult.errorCode === "SEARXNG_TIMEOUT") return "The search timed out. Please try again.";
-  if (toolResult.errorCode === "SEARXNG_NOT_CONFIGURED") return "Web search isn't set up on this server right now.";
+  if (toolResult.errorCode === "SEARCH_TIMEOUT") return "The search timed out. Please try again.";
+  if (toolResult.errorCode === "SEARCH_NOT_CONFIGURED") return "Web search isn't set up on this server right now.";
+  if (toolResult.errorCode === "SEARCH_UNAUTHORIZED") return "Web search isn't configured correctly on this server right now.";
   return `I couldn't search ${platformLabel} right now. Please try again.`;
 }
 
