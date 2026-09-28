@@ -609,7 +609,7 @@ export function Chat({ profile, metrics, conversation, onUpdateMessages, onTitle
         // more, or introducing what's next after a completion. If the
         // founder's message needed real research (finding communities,
         // current info, etc.), `sources` carries the real search results
-        // it was grounded in — see aiTools.js/searxngService.js.
+        // it was grounded in — see aiTools.js/tavilyService.js.
         const history = next.slice(-10).map(toHistoryMessage);
         const result = await api.executionMessage(profile, text, history);
         const reply = await finalizeReplyText(result.reply, { profile, metrics, docIds, historyForContinuation: history });
