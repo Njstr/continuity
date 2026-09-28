@@ -1,49 +1,42 @@
 // webResearchService.js — the clean abstraction §6/§31 of the autonomous-
-// execution spec asks for. searxngService.js (unchanged) stays the one
-// place that talks to SearXNG directly; this service sits one layer up
-// and owns the actual RESEARCH PIPELINE (§7): plan queries -> search ->
-// dedupe -> rank -> fetch top sources -> extract readable content ->
-// return normalized, structured sources. Nothing above this service
-// talks to SearXNG or does raw HTTP fetching of external pages directly
-// — executionEngine and aiService only ever call research()/search()/
-// fetchAndExtract() here.
+// execution spec asks for. tavilyService.js (unchanged here) stays the
+// one place that talks to the Tavily Search API directly; this service
+// sits one layer up and owns the actual RESEARCH PIPELINE (§7): plan
+// queries -> search -> dedupe -> rank -> fetch top sources -> extract
+// readable content -> return normalized, structured sources. Nothing
+// above this service talks to the search provider or does raw HTTP
+// fetching of external pages directly — executionEngine and aiService
+// only ever call research()/search()/fetchAndExtract() here.
 //
-// ---- Why SearXNG was "not working" (§37) ----
-// searxngService.js itself (request construction, timeout handling,
-// response parsing, error codes) is solid — see its own comments. The
-// actual failure mode traced to config/index.js: `searxngUrl` defaults to
-// an empty string, and unlike the AI-provider keys, there was no boot-
-// time validation flagging a missing SEARXNG_URL — so every web_search
-// call was silently short-circuiting into the SEARXNG_NOT_CONFIGURED
-// branch in aiTools.js, which aiTools already handles "gracefully" (tells
-// the model to answer from its own knowledge) rather than surfacing the
-// real problem anywhere visible. The app never crashed, which is exactly
-// why this was easy to miss: FounderOS quietly never did live research at
-// all. This service doesn't change that error-handling contract (still
-// throws the same SEARXNG_* error codes searxngService already defines —
-// see fetchAndExtract below for one further, genuinely new failure mode),
-// but a new diagnostic endpoint (GET /execution/research-health) now
-// makes this checkable directly instead of inferred from behavior — see
-// routes/execution.js. There is also a second, very common real-world
-// SearXNG gotcha this codebase can't detect from here at all: SearXNG
-// ships with its JSON API format DISABLED by default (`search: formats:`
-// in searxng's own settings.yml must include `- json`) — if SEARXNG_URL
-// IS set and the instance IS reachable but format=json still gets
-// rejected, that's almost always the cause. See the implementation
-// summary's "environment/configuration" section for the exact fix.
+// ---- Provider history ----
+// This originally ran on a self-hosted SearXNG instance. SearXNG itself
+// (request construction, timeout handling, response parsing, error
+// codes) was never the problem — first a missing SEARXNG_URL with no
+// boot-time warning silently disabled every search, then (once that was
+// fixed) the self-hosted instance's own search engines turned out to be
+// unreliable on shared Render hosting (rate-limited/blocked at the IP
+// level, plus a native `reddit` engine not present in that image at
+// all). Rather than keep fighting engine configuration on a self-hosted
+// box, this now runs on Tavily (a hosted search API built for exactly
+// this AI-agent use case) — see tavilyService.js for the full story and
+// searxngService.js (left in place, unused, fully working) if
+// self-hosting is ever revisited. Error codes are the provider-neutral
+// SEARCH_* namespace (see tavilyService.js) — GET
+// /api/execution/research-health still works as the diagnostic
+// endpoint, now checking Tavily configuration instead.
 
 const cheerio = require("cheerio");
-const searxngService = require("./searxngService");
+const searchProvider = require("./tavilyService");
 const config = require("../config");
 const { withTimeout } = require("../utils/retry");
 
 // ---- search() ----
-// Thin, typed passthrough to searxngService — kept here (rather than
-// having callers reach into searxngService directly) so this module is
-// the single place other services import for ANY web-research need,
+// Thin, typed passthrough to the search provider — kept here (rather
+// than having callers reach into tavilyService directly) so this module
+// is the single place other services import for ANY web-research need,
 // search or fetch alike (§31).
 async function search(params) {
-  return searxngService.search(params);
+  return searchProvider.search(params);
 }
 
 // ---- fetchAndExtract(url) ----
@@ -205,9 +198,9 @@ function rankResults(results, topic) {
 // caller (aiService.planResearchQueries) — this function does not call
 // the AI itself, to keep it a plain, fast, unit-testable service.
 async function research(planQueries, { maxSourcesToFetch = 5, timeRange } = {}) {
-  if (!searxngService.isSearxngConfigured()) {
+  if (!searchProvider.isConfigured()) {
     const err = new Error("Web search is not configured on this server.");
-    err.code = "SEARXNG_NOT_CONFIGURED";
+    err.code = "SEARCH_NOT_CONFIGURED";
     throw err;
   }
 
@@ -226,7 +219,7 @@ async function research(planQueries, { maxSourcesToFetch = 5, timeRange } = {}) 
   const succeeded = searchOutcomes.filter((o) => o.status === "fulfilled");
   if (succeeded.length === 0) {
     const firstError = searchOutcomes[0].reason;
-    throw firstError; // propagate the real SearXNG error code/message
+    throw firstError; // propagate the real search-provider error code/message
   }
 
   const allResults = succeeded.flatMap((o) => o.value.results);
@@ -263,4 +256,4 @@ async function research(planQueries, { maxSourcesToFetch = 5, timeRange } = {}) 
   };
 }
 
-module.exports = { search, fetchAndExtract, research, isSearxngConfigured: searxngService.isSearxngConfigured };
+module.exports = { search, fetchAndExtract, research, isSearchConfigured: searchProvider.isConfigured };
